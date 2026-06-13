@@ -21,7 +21,7 @@ describe('UsersService', () => {
       create: jest.fn(),
       save: jest.fn(),
       remove: jest.fn(),
-    } as unknown as RepoMock;
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -81,9 +81,9 @@ describe('UsersService', () => {
 
   it('update throws when the user does not exist', async () => {
     repo.findOneBy.mockResolvedValue(null);
-    await expect(
-      service.update('nope', { name: 'x' }),
-    ).rejects.toBeInstanceOf(ResourceNotFoundException);
+    await expect(service.update('nope', { name: 'x' })).rejects.toBeInstanceOf(
+      ResourceNotFoundException,
+    );
     expect(repo.save).not.toHaveBeenCalled();
   });
 

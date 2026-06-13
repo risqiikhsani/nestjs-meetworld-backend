@@ -17,7 +17,12 @@ export const typeOrmAsyncConfig: TypeOrmModuleAsyncOptions = {
     database: config.getOrThrow<string>('DB_NAME'),
     entities: [User, Post, Profile],
     subscribers: [UserSubscriber],
+
+    // Development: synchronize: true can automatically update the database schema.
+    // Production: Never use synchronize: true. Use TypeORM migrations instead.
+    // example: npm run typeorm migration:generate src/database/migrations/AddPhoneToUser
     synchronize: true,
+
     logging: config.get<string>('NODE_ENV') === 'development',
   }),
 };

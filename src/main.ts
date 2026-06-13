@@ -15,6 +15,7 @@ async function bootstrap(): Promise<void> {
       transform: true,
     }),
   );
+
   app.useGlobalFilters(new HttpExceptionFilter());
 
   const config = app.get(ConfigService);

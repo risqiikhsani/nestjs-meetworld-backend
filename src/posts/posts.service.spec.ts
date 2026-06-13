@@ -23,11 +23,11 @@ describe('PostsService', () => {
       create: jest.fn(),
       save: jest.fn(),
       remove: jest.fn(),
-    } as unknown as RepoMock;
+    };
 
     usersService = {
       findOne: jest.fn(),
-    } as unknown as jest.Mocked<Pick<UsersService, 'findOne'>>;
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [

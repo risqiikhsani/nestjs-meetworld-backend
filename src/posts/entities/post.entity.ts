@@ -16,6 +16,9 @@ export class Post {
   @PrimaryGeneratedColumn('uuid')
   id!: string;
 
+  @Column('text', { array: true, nullable: true })
+  images!: string[];
+
   @Column({ type: 'varchar', length: 200 })
   title!: string;
 

@@ -7,9 +7,7 @@ import { UpdateProfileDto } from './dto/update-profile.dto';
 import { Profile } from './entities/profile.entity';
 import { ProfilesService } from './profiles.service';
 
-type RepoMock = jest.Mocked<
-  Pick<Repository<Profile>, 'findOneBy' | 'save'>
->;
+type RepoMock = jest.Mocked<Pick<Repository<Profile>, 'findOneBy' | 'save'>>;
 
 describe('ProfilesService', () => {
   let service: ProfilesService;
@@ -20,11 +18,11 @@ describe('ProfilesService', () => {
     repo = {
       findOneBy: jest.fn(),
       save: jest.fn(),
-    } as unknown as RepoMock;
+    };
 
     usersService = {
       findOne: jest.fn(),
-    } as unknown as jest.Mocked<Pick<UsersService, 'findOne'>>;
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -86,7 +84,9 @@ describe('ProfilesService', () => {
 
       const dto: UpdateProfileDto = { bio: 'hello' };
       await expect(service.update('u1', dto)).resolves.toBe(saved);
-      expect(repo.save).toHaveBeenCalledWith(expect.objectContaining({ bio: 'hello' }));
+      expect(repo.save).toHaveBeenCalledWith(
+        expect.objectContaining({ bio: 'hello' }),
+      );
     });
 
     it('throws when the user does not exist', async () => {
@@ -94,9 +94,9 @@ describe('ProfilesService', () => {
         new ResourceNotFoundException('User', 'nope'),
       );
 
-      await expect(
-        service.update('nope', { bio: 'x' }),
-      ).rejects.toBeInstanceOf(ResourceNotFoundException);
+      await expect(service.update('nope', { bio: 'x' })).rejects.toBeInstanceOf(
+        ResourceNotFoundException,
+      );
       expect(repo.save).not.toHaveBeenCalled();
     });
   });
