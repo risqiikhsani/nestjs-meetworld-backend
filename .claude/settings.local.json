@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dir C:\\\\Users\\\\MASTER\\\\Documents\\\\code\\\\meetworld\\\\*.json C:\\\\Users\\\\MASTER\\\\Documents\\\\code\\\\meetworld\\\\*.mjs C:\\\\Users\\\\MASTER\\\\Documents\\\\code\\\\meetworld\\\\.*)",
+      "mcp__context7__resolve-library-id",
+      "mcp__context7__query-docs",
+      "Bash(pnpm add *)",
+      "Bash(pnpm run *)",
+      "Bash(pnpm test *)"
+    ]
+  }
+}
