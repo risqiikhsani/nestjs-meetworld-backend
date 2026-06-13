@@ -43,8 +43,10 @@ src/
   common/
     exceptions/resource-not-found.exception.ts
     filters/http-exception.filter.ts # @Catch() global — shapes all errors as JSON
-  users/                             # exports UsersService
-  posts/                             # imports UsersModule to verify parent before any write
+  users/                             # user API
+  posts/                             # user's posts API
+  profiles/                          # user's profile API
+  uploads/                           # upload files API
 ```
 
 ### Dependency direction (the key thing to understand at a glance)
