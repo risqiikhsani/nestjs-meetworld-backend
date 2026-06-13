@@ -1,3 +1,4 @@
+import { Exclude } from 'class-transformer';
 import {
   Column,
   CreateDateColumn,
@@ -22,6 +23,15 @@ export class User {
 
   @Column({ type: 'varchar', length: 80 })
   name!: string;
+
+  @Exclude({ toPlainOnly: true })
+  @Column({
+    name: 'password_hash',
+    type: 'varchar',
+    length: 60,
+    nullable: true,
+  })
+  passwordHash!: string | null;
 
   @OneToOne(() => Profile, (profile) => profile.user, { cascade: false })
   profile?: Profile;

@@ -8,9 +8,7 @@ import {
   Param,
   ParseUUIDPipe,
   Patch,
-  Post,
 } from '@nestjs/common';
-import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UsersService } from './users.service';
 
@@ -26,11 +24,6 @@ export class UsersController {
   @Get(':id')
   findOne(@Param('id', new ParseUUIDPipe()) id: string) {
     return this.usersService.findOne(id);
-  }
-
-  @Post()
-  create(@Body() dto: CreateUserDto) {
-    return this.usersService.create(dto);
   }
 
   @Patch(':id')

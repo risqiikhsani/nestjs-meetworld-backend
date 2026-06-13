@@ -33,11 +33,11 @@ pnpm run format              # prettier --write
 
 ### Module layout
 
-Two feature modules plus a `common` layer and a `config` layer.
+Three feature modules plus a `common` layer and a `config` layer.
 
 ```
 src/
-  main.ts                            # bootstrap: prefix, ValidationPipe, filter
+  main.ts                            # bootstrap: prefix, ValidationPipe, filter, guard, serializer
   app.module.ts                      # composes ConfigModule + TypeOrm + feature modules
   config/typeorm.config.ts           # TypeOrmModuleAsyncOptions factory (injects ConfigService)
   common/
@@ -47,17 +47,21 @@ src/
   posts/                             # user's posts API
   profiles/                          # user's profile API
   uploads/                           # upload files API
+  auth/                              # JWT auth (local strategy only; OAuth slot reserved)
+  health/                            # liveness/readiness check
 ```
 
 ### Dependency direction (the key thing to understand at a glance)
 
-`PostsModule` imports `UsersModule`. This is the only cross-module edge in the app, and it's how the project applies the **Dependency Inversion** principle: `PostsService` injects `UsersService` (an abstraction) rather than reaching into `Repository<User>`. The result is that every post operation first calls `usersService.findOne(userId)`, which throws `ResourceNotFoundException` (404) if the parent user is missing — and the post lookup is then scoped by `authorId: userId` so posts can't leak across users. `UsersModule` must keep `exports: [UsersService]` for this to work; don't remove it.
+`PostsModule` and `ProfilesModule` both import `UsersModule`. `AuthModule` also imports `UsersModule`. This is the project's **Dependency Inversion** principle at work: downstream services inject `UsersService` (an abstraction) rather than reaching into `Repository<User>`. The result is that every post/profile/auth operation first calls `usersService.findOne(userId)` (or `findByEmail`), which throws `ResourceNotFoundException` (404) if the parent user is missing — and the post lookup is then scoped by `authorId: userId` so posts can't leak across users. `UsersModule` must keep `exports: [UsersService]` for this to work; don't remove it.
 
 ### Cross-cutting wiring (set up in `main.ts`)
 
 - Global URL prefix: `/api`
-- Global `ValidationPipe` with `whitelist: true`, `forbidNonWhitelisted: true`, `transform: true` — this is what strips a spoofed `authorId` from `POST /api/users/:userId/posts`. Don't weaken it.
+- Global `ValidationPipe` with `whitelist: true`, `forbidNonWhitelisted: true`, `transform: true` — this is what strips a spoofed `authorId` from `POST /api/users/:userId/posts`, and a spoofed `passwordHash` from `POST /api/auth/register`. Don't weaken it.
 - Global `HttpExceptionFilter` produces a uniform error shape: `{ statusCode, timestamp, path, message }` and logs 5xx via Nest's `Logger`.
+- Global `ClassSerializerInterceptor` honors `@Exclude()` on entities. The `User` entity uses `@Exclude({ toPlainOnly: true })` on `passwordHash` so the bcrypt hash never reaches a response — don't remove the interceptor.
+- Global `JwtAuthGuard` (`src/auth/guards/jwt-auth.guard.ts`) makes every route private by default. Opt out with `@Public()` (used by `HealthController` and `AuthController`). Adding a new feature controller without `@UseGuards(...)` is fine — it's already protected.
 - `ConfigModule` is global, loads `.env`. All config goes through `ConfigService`; nothing reads `process.env` directly except the port fallback in `main.ts`.
 
 ### Data layer
@@ -67,6 +71,15 @@ src/
 - Entities use `PrimaryGeneratedColumn('uuid')` — TypeORM generates UUIDs in application code, no Postgres `uuid-ossp` extension required.
 - `posts.author_id` has `onDelete: CASCADE` and an index named `idx_posts_author_id`. `users.email` has a unique index.
 
+### Auth layer
+
+- `src/auth/` is its own module. `AuthController` exposes `POST /api/auth/register` and `POST /api/auth/login` (both `@Public()`); both return `{ access_token, user: { id, email, name } }`.
+- Login identifier is **email** (the existing `users.email` unique column). There is no `username` column.
+- Passwords are bcrypt-hashed at cost 12. The plaintext password never touches `UsersService` — hashing lives in `AuthService.register` and comparison in `AuthService.validateUser`.
+- Token is a standard HS256 JWT signed with `JWT_SECRET` (read via `ConfigService.getOrThrow`), expiring after `JWT_EXPIRES_IN` (default `1d`). Payload: `{ sub: userId, email }`.
+- `JwtStrategy.validate` does **not** re-fetch the user from the DB on every request — it just returns `{ id: payload.sub, email: payload.email }` as `req.user`. Read it via `@CurrentUser()` or `@Req()`.
+- `User.passwordHash` is typed `string | null` and column `nullable: true`. Legacy users (created before auth was added) have `null` and cannot log in — they must be re-registered or backfilled by a migration. To harden later, write a one-shot migration to backfill + `SET NOT NULL`, then flip the entity.
+
 ### Test conventions
 
 - Specs live next to source as `*.spec.ts`. Jest's `rootDir` is `src/`, `testRegex` is `.*\\.spec\\.ts$`.
@@ -74,7 +87,7 @@ src/
 
 ### Things that aren't here yet
 
-- **No auth.** No JWT, no guards, no `current-user` decorator. Endpoints are public.
 - **No migrations.** Schema is created by `synchronize`.
+- **No Google / OAuth provider.** `AuthService.validateUser` is the seam; a second strategy file + a new service method is all that should be needed.
 - **No Swagger / OpenAPI.**
 - **No e2e tests.**

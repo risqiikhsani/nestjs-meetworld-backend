@@ -9,7 +9,27 @@
       "Bash(pnpm test *)",
       "Bash(pnpm build *)",
       "Bash(node -e \"const m = require\\('./dist/uploads/uploads.module.js'\\); const s = require\\('./dist/uploads/uploads.service.js'\\); console.log\\('module S3_CLIENT:', m.S3_CLIENT\\); console.log\\('typeof S3_CLIENT in service would be: string?'\\);\")",
-      "Bash(pnpm lint *)"
+      "Bash(pnpm lint *)",
+      "Bash(pnpm approve-builds *)",
+      "Bash(node -e \"const bcrypt = require\\('bcrypt'\\); console.log\\(bcrypt.hashSync\\('test', 12\\)\\);\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:3000/api/health)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:3000/api/users)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" -X POST http://localhost:3000/api/auth/register -H \"Content-Type: application/json\" -d '{\"email\":\"ada@example.com\",\"password\":\"correcthorse\",\"name\":\"Ada\"}')",
+      "Bash(netstat -ano)",
+      "Bash(taskkill /F /PID 18076)",
+      "Bash(cmd //c \"taskkill /F /PID 18076\")",
+      "Bash(echo \"Server PID=$!\")",
+      "Read(//tmp/**)",
+      "Bash(curl -s -o /dev/null -w \"health: %{http_code}\\\\n\" http://localhost:3000/api/health)",
+      "Bash(cmd //c \"taskkill /F /PID 3212\")",
+      "Bash(curl -s -w '\\\\nstatus: %{http_code}\\\\n' -X POST http://localhost:3000/api/auth/register -H 'Content-Type: application/json' -d '{\"email\":\"x@y.com\",\"password\":\"short\",\"name\":\"x\"}')",
+      "Bash(curl -s -w '\\\\nstatus: %{http_code}\\\\n' -X POST http://localhost:3000/api/auth/register -H 'Content-Type: application/json' -d '{\"email\":\"spoof@y.com\",\"password\":\"longenoughpw\",\"name\":\"Spoof\",\"passwordHash\":\"$2b$12$fake\"}')",
+      "Bash(curl -s -w '\\\\nstatus: %{http_code}\\\\n' -X POST http://localhost:3000/api/auth/register -H 'Content-Type: application/json' -d '{\"email\":\"not-an-email\",\"password\":\"longenoughpw\",\"name\":\"x\"}')",
+      "Bash(curl -s -w '\\\\nstatus: %{http_code}\\\\n' -X POST http://localhost:3000/api/auth/register -H 'Content-Type: application/json' -d '{\"email\":\"x@y.com\"}')",
+      "Bash(curl -s -w \"\\\\nstatus: %{http_code}\\\\n\" \"http://localhost:3000/api/users/00000000-0000-0000-0000-000000000000/posts\")",
+      "Bash(curl -s -w \"\\\\nstatus: %{http_code}\\\\n\" \"http://localhost:3000/api/uploads\" -X POST)",
+      "Bash(curl -s -w \"\\\\nstatus: %{http_code}\\\\n\" \"http://localhost:3000/api/users/00000000-0000-0000-0000-000000000000/profile\")",
+      "Bash(cmd //c \"taskkill /F /PID 21568\")"
     ]
   }
 }

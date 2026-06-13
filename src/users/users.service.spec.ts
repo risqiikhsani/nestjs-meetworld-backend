@@ -49,6 +49,20 @@ describe('UsersService', () => {
     expect(repo.findOneBy).toHaveBeenCalledWith({ id: 'u1' });
   });
 
+  it('findByEmail returns the user when present', async () => {
+    const user = { id: 'u1', email: 'a@b.com' } as User;
+    repo.findOneBy.mockResolvedValue(user);
+
+    await expect(service.findByEmail('a@b.com')).resolves.toBe(user);
+    expect(repo.findOneBy).toHaveBeenCalledWith({ email: 'a@b.com' });
+  });
+
+  it('findByEmail returns null when missing (does not throw)', async () => {
+    repo.findOneBy.mockResolvedValue(null);
+
+    await expect(service.findByEmail('nope@b.com')).resolves.toBeNull();
+  });
+
   it('findOne throws ResourceNotFoundException when missing', async () => {
     repo.findOneBy.mockResolvedValue(null);
 
