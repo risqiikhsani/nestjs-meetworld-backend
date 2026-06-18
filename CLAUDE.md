@@ -66,7 +66,7 @@ src/
 
 ### Data layer
 
-- TypeORM connection is built by `typeOrmAsyncConfig` in `src/config/typeorm.config.ts`. It pulls `DB_HOST`, `DB_PORT`, `DB_USERNAME`, `DB_PASSWORD`, `DB_NAME` from `ConfigService` (use `getOrThrow`).
+- TypeORM connection is built by `typeOrmAsyncConfig` in `src/config/typeorm.config.ts`. It reads `DATABASE_URL` (a standard `postgresql://user:pass@host:port/dbname` connection string) from `ConfigService` via `getOrThrow` and passes it as TypeORM's `url` field. The `pg` driver parses the URL itself.
 - **`synchronize: true` is dev-only.** It auto-creates/alters tables on boot. Flip it off and add migrations before any production deploy.
 - Entities use `PrimaryGeneratedColumn('uuid')` — TypeORM generates UUIDs in application code, no Postgres `uuid-ossp` extension required.
 - `posts.author_id` has `onDelete: CASCADE` and an index named `idx_posts_author_id`. `users.email` has a unique index.
