@@ -1,4 +1,8 @@
-import { Inject, Injectable, ServiceUnavailableException } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  ServiceUnavailableException,
+} from '@nestjs/common';
 import Redis from 'ioredis';
 import { DataSource } from 'typeorm';
 import { REDIS_CLIENT } from '../redis/redis.constants';
