@@ -11,6 +11,7 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 import { Post } from '../../posts/entities/post.entity';
+import { Comment } from '../../comments/entities/comment.entity';
 import { Profile } from '../../profiles/entities/profile.entity';
 
 @Entity({ name: 'users' })
@@ -52,6 +53,10 @@ export class User {
   @ApiProperty({ type: () => Post, isArray: true })
   @OneToMany(() => Post, (post) => post.author, { cascade: false })
   posts!: Post[];
+
+  @ApiProperty({ type: () => Comment, isArray: true })
+  @OneToMany(() => Comment, (comment) => comment.author, { cascade: false })
+  comments!: Comment[];
 
   @ApiProperty()
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })

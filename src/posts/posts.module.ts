@@ -10,5 +10,6 @@ import { PostsService } from './posts.service';
   imports: [TypeOrmModule.forFeature([Post]), UsersModule, RedisModule],
   controllers: [PostsController],
   providers: [PostsService],
+  exports: [PostsService],
 })
 export class PostsModule {}

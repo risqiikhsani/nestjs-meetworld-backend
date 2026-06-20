@@ -1,5 +1,6 @@
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModuleAsyncOptions } from '@nestjs/typeorm';
+import { Comment } from '../comments/entities/comment.entity';
 import { Post } from '../posts/entities/post.entity';
 import { Profile } from '../profiles/entities/profile.entity';
 import { UserSubscriber } from '../profiles/subscribers/user.subscriber';
@@ -11,7 +12,8 @@ export const typeOrmAsyncConfig: TypeOrmModuleAsyncOptions = {
   useFactory: (config: ConfigService) => ({
     type: 'postgres' as const,
     url: config.getOrThrow<string>('DATABASE_URL'),
-    entities: [User, Post, Profile],
+    // entities: [User, Post, Profile, Comment],
+    autoLoadEntities: true, // 👈 Enables auto-loading
     subscribers: [UserSubscriber],
 
     // Development: synchronize: true can automatically update the database schema.

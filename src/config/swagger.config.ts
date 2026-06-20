@@ -34,6 +34,10 @@ export function buildSwaggerConfig(): DocumentBuilder {
     .addTag('auth', 'Registration and login (public).')
     .addTag('users', 'User CRUD.')
     .addTag('posts', 'Posts scoped under a user (`:userId/posts`).')
+    .addTag(
+      'comments',
+      'Comments scoped under a post (`/posts/:postId/comments`).',
+    )
     .addTag('profiles', 'Profile scoped under a user (`:userId/profile`).')
     .addTag('uploads', 'Multipart file uploads to S3.')
     .addTag('health', 'Liveness/readiness probe (public).');

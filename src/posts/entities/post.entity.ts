@@ -6,10 +6,12 @@ import {
   Index,
   JoinColumn,
   ManyToOne,
+  OneToMany,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
+import { Comment } from '../../comments/entities/comment.entity';
 
 @Entity({ name: 'posts' })
 @Index('idx_posts_author_id', ['authorId'])
@@ -57,4 +59,8 @@ export class Post {
   @ApiProperty()
   @UpdateDateColumn({ name: 'updated_at', type: 'timestamptz' })
   updatedAt!: Date;
+
+  @ApiProperty({ type: () => Comment, isArray: true })
+  @OneToMany(() => Comment, (comment) => comment.post)
+  comments!: Comment[];
 }

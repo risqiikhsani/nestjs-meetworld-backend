@@ -85,6 +85,19 @@ export class PostsService {
     return post;
   }
 
+  /**
+   * Look up a post by id without scoping to a user. Used by downstream
+   * services (e.g. comments) that need to verify a post exists but do
+   * not know the post's author. Throws 404 if missing.
+   */
+  async findOneById(id: string): Promise<Post> {
+    const post = await this.postsRepository.findOneBy({ id });
+    if (!post) {
+      throw new ResourceNotFoundException('Post', id);
+    }
+    return post;
+  }
+
   async create(userId: string, dto: CreatePostDto): Promise<Post> {
     await this.usersService.findOne(userId);
     const entity = this.postsRepository.create({ ...dto, authorId: userId });
