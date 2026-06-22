@@ -19,7 +19,14 @@ export const typeOrmAsyncConfig: TypeOrmModuleAsyncOptions = {
     // Development: synchronize: true can automatically update the database schema.
     // Production: Never use synchronize: true. Use TypeORM migrations instead.
     // example: npm run typeorm migration:generate src/database/migrations/AddPhoneToUser
-    synchronize: true,
+    // synchronize: true,
+
+    // 1. Turn this OFF
+    synchronize: false,
+
+    // 2. Add migrations configuration
+    migrations: [__dirname + '/migrations/*{.ts,.js}'],
+    // migrationsRun: true, // Automatically runs migrations on app startup (optional)
 
     logging: config.get<string>('NODE_ENV') === 'development',
   }),

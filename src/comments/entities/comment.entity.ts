@@ -54,4 +54,10 @@ export class Comment {
   @ApiProperty()
   @UpdateDateColumn({ name: 'updated_at', type: 'timestamptz' })
   updatedAt!: Date;
+
+  // @Column()
+  // likes!: number;
+
+  // @Column()
+  // shares!: number;
 }
