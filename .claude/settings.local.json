@@ -13,7 +13,9 @@
       "Bash(cmd *)",
       "Bash(echo *)",
       "PowerShell(pnpm *)",
-      "PowerShell(pnpm exec *)"
+      "PowerShell(pnpm exec *)",
+      "Bash(cat .npmrc)",
+      "Bash(cat ~/.npmrc)"
     ]
   }
 }
