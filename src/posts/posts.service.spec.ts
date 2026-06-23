@@ -115,22 +115,21 @@ describe('PostsService', () => {
     expect(repo.find).toHaveBeenCalled();
   });
 
-  it('findOne returns the post scoped to the parent user', async () => {
-    usersService.findOne.mockResolvedValue({ id: 'u1' } as never);
+  it('findOne returns the post by id without scoping to a user', async () => {
     const post = { id: 'p1', authorId: 'u1' } as Post;
     repo.findOneBy.mockResolvedValue(post);
     redis.get.mockResolvedValue(null);
 
-    await expect(service.findOne('u1', 'p1')).resolves.toBe(post);
-    expect(repo.findOneBy).toHaveBeenCalledWith({ id: 'p1', authorId: 'u1' });
+    await expect(service.findOne('p1')).resolves.toBe(post);
+    expect(repo.findOneBy).toHaveBeenCalledWith({ id: 'p1' });
+    expect(usersService.findOne).not.toHaveBeenCalled();
   });
 
   it('findOne throws ResourceNotFoundException when the post is missing', async () => {
-    usersService.findOne.mockResolvedValue({ id: 'u1' } as never);
     repo.findOneBy.mockResolvedValue(null);
     redis.get.mockResolvedValue(null);
 
-    await expect(service.findOne('u1', 'p1')).rejects.toBeInstanceOf(
+    await expect(service.findOne('p1')).rejects.toBeInstanceOf(
       ResourceNotFoundException,
     );
   });
@@ -139,20 +138,19 @@ describe('PostsService', () => {
     const cached = { id: 'p1', authorId: 'u1' } as Post;
     redis.get.mockResolvedValue(JSON.stringify(cached));
 
-    await expect(service.findOne('u1', 'p1')).resolves.toEqual(cached);
+    await expect(service.findOne('p1')).resolves.toEqual(cached);
     expect(repo.findOneBy).not.toHaveBeenCalled();
   });
 
   it('findOne writes to cache after a DB miss', async () => {
-    usersService.findOne.mockResolvedValue({ id: 'u1' } as never);
     const post = { id: 'p1', authorId: 'u1', title: 't' } as Post;
     repo.findOneBy.mockResolvedValue(post);
     redis.get.mockResolvedValue(null);
 
-    await service.findOne('u1', 'p1');
+    await service.findOne('p1');
 
     expect(redis.set).toHaveBeenCalledWith(
-      'posts:v1:user:u1:post:p1',
+      'posts:v1:post:p1',
       JSON.stringify(post),
       'EX',
       300,
@@ -161,15 +159,13 @@ describe('PostsService', () => {
 
   it('findOne falls through to DB when redis.get throws', async () => {
     redis.get.mockRejectedValue(new Error('READONLY'));
-    usersService.findOne.mockResolvedValue({ id: 'u1' } as never);
     const post = { id: 'p1', authorId: 'u1' } as Post;
     repo.findOneBy.mockResolvedValue(post);
 
-    await expect(service.findOne('u1', 'p1')).resolves.toBe(post);
+    await expect(service.findOne('p1')).resolves.toBe(post);
   });
 
-  it('create sets authorId from the URL param, not the DTO body', async () => {
-    usersService.findOne.mockResolvedValue({ id: 'u1' } as never);
+  it('create sets authorId from the caller and invalidates the author list', async () => {
     const dto: CreatePostDto = { title: 't', body: 'b' };
     const entity = { id: 'p1', ...dto, authorId: 'u1' } as Post;
     repo.create.mockReturnValue(entity);
@@ -177,50 +173,74 @@ describe('PostsService', () => {
 
     await expect(service.create('u1', dto)).resolves.toBe(entity);
     expect(repo.create).toHaveBeenCalledWith({ ...dto, authorId: 'u1' });
+    expect(usersService.findOne).not.toHaveBeenCalled();
     expect(redis.del).toHaveBeenCalledWith('posts:v1:user:u1:all');
   });
 
-  it('update fetches, merges, and saves the post', async () => {
+  it('update fetches, asserts ownership, merges, and saves the post', async () => {
     const post = { id: 'p1', authorId: 'u1', title: 't', body: 'b' } as Post;
-    usersService.findOne.mockResolvedValue({ id: 'u1' } as never);
     repo.findOneBy.mockResolvedValue(post);
     repo.save.mockResolvedValue({ ...post, title: 't2' });
     redis.get.mockResolvedValue(null);
 
     await expect(
-      service.update('u1', 'p1', { title: 't2' }),
+      service.update('p1', 'u1', { title: 't2' }),
     ).resolves.toMatchObject({ title: 't2' });
     expect(repo.save).toHaveBeenCalled();
+    expect(usersService.findOne).not.toHaveBeenCalled();
     expect(redis.del).toHaveBeenCalledWith(
-      'posts:v1:user:u1:post:p1',
+      'posts:v1:post:p1',
       'posts:v1:user:u1:all',
     );
   });
 
-  it('remove fetches the post then deletes it', async () => {
+  it('update throws ForbiddenException when the caller is not the author', async () => {
     const post = { id: 'p1', authorId: 'u1' } as Post;
-    usersService.findOne.mockResolvedValue({ id: 'u1' } as never);
+    repo.findOneBy.mockResolvedValue(post);
+    redis.get.mockResolvedValue(null);
+
+    await expect(service.update('p1', 'u2', { title: 't2' })).rejects.toThrow(
+      'You can only modify your own posts.',
+    );
+    expect(repo.save).not.toHaveBeenCalled();
+    expect(redis.del).not.toHaveBeenCalled();
+  });
+
+  it('remove fetches, asserts ownership, then deletes the post', async () => {
+    const post = { id: 'p1', authorId: 'u1' } as Post;
     repo.findOneBy.mockResolvedValue(post);
     repo.remove.mockResolvedValue(post);
     redis.get.mockResolvedValue(null);
 
-    await expect(service.remove('u1', 'p1')).resolves.toBeUndefined();
+    await expect(service.remove('p1', 'u1')).resolves.toBeUndefined();
     expect(repo.remove).toHaveBeenCalledWith(post);
+    expect(usersService.findOne).not.toHaveBeenCalled();
     expect(redis.del).toHaveBeenCalledWith(
-      'posts:v1:user:u1:post:p1',
+      'posts:v1:post:p1',
       'posts:v1:user:u1:all',
     );
+  });
+
+  it('remove throws ForbiddenException when the caller is not the author', async () => {
+    const post = { id: 'p1', authorId: 'u1' } as Post;
+    repo.findOneBy.mockResolvedValue(post);
+    redis.get.mockResolvedValue(null);
+
+    await expect(service.remove('p1', 'u2')).rejects.toThrow(
+      'You can only modify your own posts.',
+    );
+    expect(repo.remove).not.toHaveBeenCalled();
+    expect(redis.del).not.toHaveBeenCalled();
   });
 
   it('still completes remove when redis.del throws', async () => {
     redis.del.mockRejectedValue(new Error('ETIMEDOUT'));
-    usersService.findOne.mockResolvedValue({ id: 'u1' } as never);
     const post = { id: 'p1', authorId: 'u1' } as Post;
     repo.findOneBy.mockResolvedValue(post);
     repo.remove.mockResolvedValue(post);
     redis.get.mockResolvedValue(null);
 
-    await expect(service.remove('u1', 'p1')).resolves.toBeUndefined();
+    await expect(service.remove('p1', 'u1')).resolves.toBeUndefined();
     expect(repo.remove).toHaveBeenCalled();
   });
 

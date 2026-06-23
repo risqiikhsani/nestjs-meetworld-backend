@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Inject,
   Injectable,
   Logger,
@@ -20,8 +21,7 @@ const TTL_LIST_SECONDS = 60;
 const TTL_POST_SECONDS = 300;
 
 const listKey = (userId: string): string => `posts:v1:user:${userId}:all`;
-const postKey = (userId: string, id: string): string =>
-  `posts:v1:user:${userId}:post:${id}`;
+const postKey = (id: string): string => `posts:v1:post:${id}`;
 
 type FeedCursor = { t: string; i: string };
 
@@ -86,8 +86,8 @@ export class PostsService {
     return posts;
   }
 
-  async findOne(userId: string, id: string): Promise<Post> {
-    const key = postKey(userId, id);
+  async findOne(id: string): Promise<Post> {
+    const key = postKey(id);
 
     try {
       const cached = await this.redis.get(key);
@@ -98,8 +98,7 @@ export class PostsService {
       );
     }
 
-    await this.usersService.findOne(userId);
-    const post = await this.postsRepository.findOneBy({ id, authorId: userId });
+    const post = await this.postsRepository.findOneBy({ id });
     if (!post) {
       throw new ResourceNotFoundException('Post', id);
     }
@@ -181,7 +180,6 @@ export class PostsService {
   }
 
   async create(userId: string, dto: CreatePostDto): Promise<Post> {
-    await this.usersService.findOne(userId);
     const entity = this.postsRepository.create({ ...dto, authorId: userId });
     const saved = await this.postsRepository.save(entity);
 
@@ -189,19 +187,29 @@ export class PostsService {
     return saved;
   }
 
-  async update(userId: string, id: string, dto: UpdatePostDto): Promise<Post> {
-    const post = await this.findOne(userId, id);
+  async update(id: string, userId: string, dto: UpdatePostDto): Promise<Post> {
+    const post = await this.findOne(id);
+    this.assertOwnership(post, userId);
+
     Object.assign(post, dto);
     const saved = await this.postsRepository.save(post);
 
-    await this.invalidateKeys([postKey(userId, id), listKey(userId)]);
+    await this.invalidateKeys([postKey(id), listKey(post.authorId)]);
     return saved;
   }
 
-  async remove(userId: string, id: string): Promise<void> {
-    const post = await this.findOne(userId, id);
+  async remove(id: string, userId: string): Promise<void> {
+    const post = await this.findOne(id);
+    this.assertOwnership(post, userId);
+
     await this.postsRepository.remove(post);
-    await this.invalidateKeys([postKey(userId, id), listKey(userId)]);
+    await this.invalidateKeys([postKey(id), listKey(post.authorId)]);
+  }
+
+  private assertOwnership(post: Post, userId: string): void {
+    if (post.authorId !== userId) {
+      throw new ForbiddenException('You can only modify your own posts.');
+    }
   }
 
   private async invalidateKeys(keys: string[]): Promise<void> {

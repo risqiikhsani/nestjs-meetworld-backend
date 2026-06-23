@@ -17,7 +17,7 @@ async function bootstrap(): Promise<void> {
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     credentials: true,
   });
-  
+
   app.setGlobalPrefix('api');
   app.useGlobalPipes(
     new ValidationPipe({

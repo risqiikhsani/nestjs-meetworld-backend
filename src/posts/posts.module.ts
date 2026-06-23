@@ -6,10 +6,11 @@ import { FeedController } from './feed.controller';
 import { Post } from './entities/post.entity';
 import { PostsController } from './posts.controller';
 import { PostsService } from './posts.service';
+import { UserPostsController } from './user-posts.controller';
 
 @Module({
   imports: [TypeOrmModule.forFeature([Post]), UsersModule, RedisModule],
-  controllers: [PostsController, FeedController],
+  controllers: [PostsController, FeedController, UserPostsController],
   providers: [PostsService],
   exports: [PostsService],
 })
