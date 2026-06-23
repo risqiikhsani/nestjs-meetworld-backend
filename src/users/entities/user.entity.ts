@@ -37,12 +37,14 @@ export class User {
     minLength: 60,
     maxLength: 60,
   })
+  // This ensures the field is completely ignored unless explicitly requested
   @Exclude({ toPlainOnly: true })
   @Column({
     name: 'password_hash',
     type: 'varchar',
     length: 60,
     nullable: true,
+    select: false, // <-- Combined here cleanly
   })
   passwordHash!: string | null;
 
