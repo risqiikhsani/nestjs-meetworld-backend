@@ -1,10 +1,17 @@
-import { Inject, Injectable, Logger } from '@nestjs/common';
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  Logger,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import Redis from 'ioredis';
 import { Repository } from 'typeorm';
 import { ResourceNotFoundException } from '../common/exceptions/resource-not-found.exception';
 import { REDIS_CLIENT } from '../redis/redis.constants';
 import { UsersService } from '../users/users.service';
+import { FEED_DEFAULT_LIMIT, FEED_MAX_LIMIT } from './dto/feed-query.dto';
+import { FeedResponseDto } from './dto/feed-response.dto';
 import { CreatePostDto } from './dto/create-post.dto';
 import { UpdatePostDto } from './dto/update-post.dto';
 import { Post } from './entities/post.entity';
@@ -15,6 +22,29 @@ const TTL_POST_SECONDS = 300;
 const listKey = (userId: string): string => `posts:v1:user:${userId}:all`;
 const postKey = (userId: string, id: string): string =>
   `posts:v1:user:${userId}:post:${id}`;
+
+type FeedCursor = { t: string; i: string };
+
+const encodeCursor = (c: FeedCursor): string =>
+  Buffer.from(JSON.stringify(c), 'utf8').toString('base64url');
+
+const decodeCursor = (raw: string): FeedCursor => {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(Buffer.from(raw, 'base64url').toString('utf8'));
+  } catch {
+    throw new BadRequestException('cursor is malformed');
+  }
+  if (
+    !parsed ||
+    typeof parsed !== 'object' ||
+    typeof (parsed as FeedCursor).t !== 'string' ||
+    typeof (parsed as FeedCursor).i !== 'string'
+  ) {
+    throw new BadRequestException('cursor is malformed');
+  }
+  return parsed as FeedCursor;
+};
 
 @Injectable()
 export class PostsService {
@@ -96,6 +126,58 @@ export class PostsService {
       throw new ResourceNotFoundException('Post', id);
     }
     return post;
+  }
+
+  /**
+   * Global feed: posts from every user, newest first. Each item carries
+   * a partial `author` (`{ id, name }`) so the client can render "who
+   * posted this" without a follow-up request. Cursor-paginated with a
+   * composite (createdAt, id) cursor so paging is stable under inserts.
+   *
+   * Not cached. The existing per-user caches work because writes are
+   * scoped to a single key; the feed would have to invalidate on every
+   * create/update/delete, and cursor-paginated requests are mostly unique
+   * anyway. Add caching later if read traffic justifies it.
+   */
+  async findFeed(
+    cursor: string | undefined,
+    limit?: number,
+  ): Promise<FeedResponseDto> {
+    const effectiveLimit = this.clampLimit(limit);
+    const decoded = cursor ? decodeCursor(cursor) : null;
+
+    const qb = this.postsRepository
+      .createQueryBuilder('post')
+      .leftJoin('post.author', 'author')
+      .addSelect(['author.id', 'author.name'])
+      .orderBy('post.createdAt', 'DESC')
+      .addOrderBy('post.id', 'DESC')
+      .limit(effectiveLimit + 1);
+
+    if (decoded) {
+      qb.where(
+        '(post.createdAt < :cursorTime OR (post.createdAt = :cursorTime AND post.id < :cursorId))',
+        { cursorTime: decoded.t, cursorId: decoded.i },
+      );
+    }
+
+    const rows = await qb.getMany();
+    const hasMore = rows.length > effectiveLimit;
+    const items = hasMore ? rows.slice(0, effectiveLimit) : rows;
+    const tail = hasMore ? items[items.length - 1] : null;
+    const nextCursor =
+      hasMore && tail
+        ? encodeCursor({ t: tail.createdAt.toISOString(), i: tail.id })
+        : null;
+
+    return { items, nextCursor };
+  }
+
+  private clampLimit(limit: number | undefined): number {
+    if (!limit || Number.isNaN(limit)) return FEED_DEFAULT_LIMIT;
+    if (limit < 1) return 1;
+    if (limit > FEED_MAX_LIMIT) return FEED_MAX_LIMIT;
+    return limit;
   }
 
   async create(userId: string, dto: CreatePostDto): Promise<Post> {

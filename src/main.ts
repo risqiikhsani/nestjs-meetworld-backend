@@ -35,8 +35,8 @@ async function bootstrap(): Promise<void> {
 
   // automatically create openapi.json schema for testing
   fs.writeFileSync(
-    path.join(__dirname, '../openapi.json'), 
-    JSON.stringify(document, null, 2)
+    path.join(__dirname, '../openapi.json'),
+    JSON.stringify(document, null, 2),
   );
 
   const config = app.get(ConfigService);

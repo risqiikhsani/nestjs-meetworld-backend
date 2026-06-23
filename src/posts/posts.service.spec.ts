@@ -10,7 +10,10 @@ import { Post } from './entities/post.entity';
 import { PostsService } from './posts.service';
 
 type RepoMock = jest.Mocked<
-  Pick<Repository<Post>, 'find' | 'findOneBy' | 'create' | 'save' | 'remove'>
+  Pick<
+    Repository<Post>,
+    'find' | 'findOneBy' | 'create' | 'save' | 'remove' | 'createQueryBuilder'
+  >
 >;
 type RedisMock = jest.Mocked<Pick<Redis, 'get' | 'set' | 'del' | 'ping'>>;
 
@@ -27,6 +30,7 @@ describe('PostsService', () => {
       create: jest.fn(),
       save: jest.fn(),
       remove: jest.fn(),
+      createQueryBuilder: jest.fn(),
     };
     redis = {
       get: jest.fn(),
@@ -218,5 +222,132 @@ describe('PostsService', () => {
 
     await expect(service.remove('u1', 'p1')).resolves.toBeUndefined();
     expect(repo.remove).toHaveBeenCalled();
+  });
+
+  describe('findFeed', () => {
+    const makeQb = () => {
+      const qb: Record<string, jest.Mock> = {};
+      qb.leftJoin = jest.fn().mockReturnValue(qb);
+      qb.addSelect = jest.fn().mockReturnValue(qb);
+      qb.orderBy = jest.fn().mockReturnValue(qb);
+      qb.addOrderBy = jest.fn().mockReturnValue(qb);
+      qb.limit = jest.fn().mockReturnValue(qb);
+      qb.where = jest.fn().mockReturnValue(qb);
+      qb.getMany = jest.fn().mockResolvedValue([]);
+      return qb;
+    };
+
+    const makePost = (
+      id: string,
+      createdAt: Date,
+      author: { id: string; name: string } = { id: 'u1', name: 'Alice' },
+    ): Post =>
+      ({
+        id,
+        createdAt,
+        authorId: author.id,
+        author,
+      }) as unknown as Post;
+
+    it('returns the first page with no nextCursor when fewer than limit rows exist', async () => {
+      const qb = makeQb();
+      repo.createQueryBuilder.mockReturnValue(qb as never);
+      const posts = [
+        makePost('p1', new Date('2026-06-22T12:00:00Z')),
+        makePost('p2', new Date('2026-06-22T11:00:00Z')),
+      ];
+      qb.getMany.mockResolvedValue(posts);
+
+      const result = await service.findFeed(undefined, 20);
+
+      expect(result.items).toBe(posts);
+      expect(result.nextCursor).toBeNull();
+      expect(repo.createQueryBuilder).toHaveBeenCalledWith('post');
+      expect(qb.leftJoin).toHaveBeenCalledWith('post.author', 'author');
+      expect(qb.addSelect).toHaveBeenCalledWith(['author.id', 'author.name']);
+      expect(qb.orderBy).toHaveBeenCalledWith('post.createdAt', 'DESC');
+      expect(qb.addOrderBy).toHaveBeenCalledWith('post.id', 'DESC');
+      expect(qb.limit).toHaveBeenCalledWith(21);
+      expect(qb.where).not.toHaveBeenCalled();
+    });
+
+    it('trims to limit and emits nextCursor when more rows exist', async () => {
+      const qb = makeQb();
+      repo.createQueryBuilder.mockReturnValue(qb as never);
+      const tail = makePost('p3', new Date('2026-06-22T10:00:00Z'));
+      const rows = [
+        makePost('p1', new Date('2026-06-22T12:00:00Z')),
+        makePost('p2', new Date('2026-06-22T11:00:00Z')),
+        tail,
+      ];
+      qb.getMany.mockResolvedValue(rows);
+
+      const result = await service.findFeed(undefined, 2);
+
+      expect(result.items).toHaveLength(2);
+      expect(result.items[0]).toBe(rows[0]);
+      expect(result.items[1]).toBe(rows[1]);
+      // cursor encodes the last *kept* row, not the extra
+      const decoded = JSON.parse(
+        Buffer.from(result.nextCursor!, 'base64url').toString('utf8'),
+      ) as { t: string; i: string };
+      expect(decoded).toEqual({
+        t: '2026-06-22T11:00:00.000Z',
+        i: 'p2',
+      });
+    });
+
+    it('passes a decoded cursor into the WHERE clause', async () => {
+      const qb = makeQb();
+      repo.createQueryBuilder.mockReturnValue(qb as never);
+      const cursor = Buffer.from(
+        JSON.stringify({ t: '2026-06-22T10:00:00.000Z', i: 'p3' }),
+        'utf8',
+      ).toString('base64url');
+
+      await service.findFeed(cursor, 20);
+
+      expect(qb.where).toHaveBeenCalledWith(
+        '(post.createdAt < :cursorTime OR (post.createdAt = :cursorTime AND post.id < :cursorId))',
+        { cursorTime: '2026-06-22T10:00:00.000Z', cursorId: 'p3' },
+      );
+    });
+
+    it('throws BadRequestException on a malformed cursor', async () => {
+      await expect(service.findFeed('not-base64-!!!', 20)).rejects.toThrow(
+        'cursor is malformed',
+      );
+      expect(repo.createQueryBuilder).not.toHaveBeenCalled();
+    });
+
+    it('throws BadRequestException on a cursor missing required fields', async () => {
+      const cursor = Buffer.from(
+        JSON.stringify({ t: '2026-06-22T10:00:00.000Z' }),
+        'utf8',
+      ).toString('base64url');
+      await expect(service.findFeed(cursor, 20)).rejects.toThrow(
+        'cursor is malformed',
+      );
+    });
+
+    it('clamps the limit to the maximum', async () => {
+      const qb = makeQb();
+      repo.createQueryBuilder.mockReturnValue(qb as never);
+      qb.getMany.mockResolvedValue([]);
+
+      await service.findFeed(undefined, 9999);
+
+      expect(qb.limit).toHaveBeenCalledWith(51);
+    });
+
+    it('falls back to the default limit when none is provided', async () => {
+      const qb = makeQb();
+      repo.createQueryBuilder.mockReturnValue(qb as never);
+      qb.getMany.mockResolvedValue([]);
+
+      await service.findFeed(undefined);
+
+      expect(qb.limit).toHaveBeenCalledWith(21);
+    });
   });
 });
