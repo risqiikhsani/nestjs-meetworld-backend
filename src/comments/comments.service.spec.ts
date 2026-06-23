@@ -11,7 +11,7 @@ import { CreateCommentDto } from './dto/create-comment.dto';
 import { Comment } from './entities/comment.entity';
 
 type RepoMock = jest.Mocked<
-  Pick<Repository<Comment>, 'find' | 'findOneBy' | 'create' | 'save' | 'remove'>
+  Pick<Repository<Comment>, 'find' | 'findOne' | 'create' | 'save' | 'remove'>
 >;
 type RedisMock = jest.Mocked<Pick<Redis, 'get' | 'set' | 'del' | 'ping'>>;
 type PostsServiceMock = jest.Mocked<Pick<PostsService, 'findOneById'>>;
@@ -25,7 +25,7 @@ describe('CommentsService', () => {
   beforeEach(async () => {
     repo = {
       find: jest.fn(),
-      findOneBy: jest.fn(),
+      findOne: jest.fn(),
       create: jest.fn(),
       save: jest.fn(),
       remove: jest.fn(),
@@ -64,6 +64,7 @@ describe('CommentsService', () => {
       expect(repo.find).toHaveBeenCalledWith({
         where: { postId: 'p1' },
         order: { createdAt: 'DESC' },
+        relations: ['author'],
       });
     });
 
@@ -118,15 +119,18 @@ describe('CommentsService', () => {
   describe('findOne', () => {
     it('returns the comment on a cache miss', async () => {
       const comment = { id: 'c1' } as Comment;
-      repo.findOneBy.mockResolvedValue(comment);
+      repo.findOne.mockResolvedValue(comment);
       redis.get.mockResolvedValue(null);
 
       await expect(service.findOne('c1')).resolves.toBe(comment);
-      expect(repo.findOneBy).toHaveBeenCalledWith({ id: 'c1' });
+      expect(repo.findOne).toHaveBeenCalledWith({
+        where: { id: 'c1' },
+        relations: ['author'],
+      });
     });
 
     it('throws ResourceNotFoundException when the comment is missing', async () => {
-      repo.findOneBy.mockResolvedValue(null);
+      repo.findOne.mockResolvedValue(null);
       redis.get.mockResolvedValue(null);
 
       await expect(service.findOne('c1')).rejects.toBeInstanceOf(
@@ -139,12 +143,12 @@ describe('CommentsService', () => {
       redis.get.mockResolvedValue(JSON.stringify(cached));
 
       await expect(service.findOne('c1')).resolves.toEqual(cached);
-      expect(repo.findOneBy).not.toHaveBeenCalled();
+      expect(repo.findOne).not.toHaveBeenCalled();
     });
 
     it('writes to cache after a DB miss', async () => {
       const comment = { id: 'c1', text: 'hi' } as Comment;
-      repo.findOneBy.mockResolvedValue(comment);
+      repo.findOne.mockResolvedValue(comment);
       redis.get.mockResolvedValue(null);
 
       await service.findOne('c1');
@@ -168,14 +172,26 @@ describe('CommentsService', () => {
         postId: 'p1',
         authorId: 'u1',
       } as Comment;
+      const withAuthor = {
+        id: 'c1',
+        text: 'nice post',
+        postId: 'p1',
+        authorId: 'u1',
+        author: { id: 'u1', name: 'Alice' },
+      } as Comment;
       repo.create.mockReturnValue(entity);
       repo.save.mockResolvedValue(entity);
+      repo.findOne.mockResolvedValue(withAuthor);
 
-      await expect(service.create('p1', 'u1', dto)).resolves.toBe(entity);
+      await expect(service.create('p1', 'u1', dto)).resolves.toBe(withAuthor);
       expect(repo.create).toHaveBeenCalledWith({
         text: 'nice post',
         postId: 'p1',
         authorId: 'u1',
+      });
+      expect(repo.findOne).toHaveBeenCalledWith({
+        where: { id: 'c1' },
+        relations: ['author'],
       });
       expect(redis.del).toHaveBeenCalledWith('comments:v1:post:p1:all');
     });
@@ -200,7 +216,7 @@ describe('CommentsService', () => {
         authorId: 'u1',
         text: 'old',
       } as Comment;
-      repo.findOneBy.mockResolvedValue(comment);
+      repo.findOne.mockResolvedValue(comment);
       redis.get.mockResolvedValue(null);
       repo.save.mockResolvedValue({ ...comment, text: 'new' });
 
@@ -215,7 +231,7 @@ describe('CommentsService', () => {
 
     it('throws ForbiddenException when the current user is not the author', async () => {
       const comment = { id: 'c1', postId: 'p1', authorId: 'u1' } as Comment;
-      repo.findOneBy.mockResolvedValue(comment);
+      repo.findOne.mockResolvedValue(comment);
       redis.get.mockResolvedValue(null);
 
       await expect(
@@ -228,7 +244,7 @@ describe('CommentsService', () => {
   describe('remove', () => {
     it('allows the author to delete their own comment', async () => {
       const comment = { id: 'c1', postId: 'p1', authorId: 'u1' } as Comment;
-      repo.findOneBy.mockResolvedValue(comment);
+      repo.findOne.mockResolvedValue(comment);
       redis.get.mockResolvedValue(null);
       repo.remove.mockResolvedValue(comment);
 
@@ -242,7 +258,7 @@ describe('CommentsService', () => {
 
     it('throws ForbiddenException when the current user is not the author', async () => {
       const comment = { id: 'c1', postId: 'p1', authorId: 'u1' } as Comment;
-      repo.findOneBy.mockResolvedValue(comment);
+      repo.findOne.mockResolvedValue(comment);
       redis.get.mockResolvedValue(null);
 
       await expect(service.remove('c1', 'u2')).rejects.toBeInstanceOf(

@@ -42,6 +42,7 @@ export class CommentsService {
     const comments = await this.commentsRepository.find({
       where: { postId },
       order: { createdAt: 'DESC' },
+      relations: ['author'],
     });
 
     try {
@@ -72,7 +73,10 @@ export class CommentsService {
       );
     }
 
-    const comment = await this.commentsRepository.findOneBy({ id });
+    const comment = await this.commentsRepository.findOne({
+      where: { id },
+      relations: ['author'],
+    });
     if (!comment) {
       throw new ResourceNotFoundException('Comment', id);
     }
@@ -106,8 +110,15 @@ export class CommentsService {
     });
     const saved = await this.commentsRepository.save(entity);
 
+    // Reload with the author relation populated. `save()` only returns
+    // the columns we inserted; the relation has to be fetched separately.
+    const withAuthor = await this.commentsRepository.findOne({
+      where: { id: saved.id },
+      relations: ['author'],
+    });
+
     await this.invalidateKeys([listKey(postId)]);
-    return saved;
+    return withAuthor!;
   }
 
   async update(

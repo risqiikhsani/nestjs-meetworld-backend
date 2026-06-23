@@ -9,6 +9,9 @@ function makeContext(): ExecutionContext {
   return {
     getHandler: jest.fn(),
     getClass: jest.fn(),
+    switchToHttp: jest.fn().mockReturnValue({
+      getRequest: jest.fn().mockReturnValue({ method: 'GET' }),
+    }),
   } as unknown as ExecutionContext;
 }
 

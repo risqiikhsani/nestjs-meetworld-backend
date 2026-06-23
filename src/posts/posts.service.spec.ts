@@ -258,8 +258,7 @@ describe('PostsService', () => {
   describe('findFeed', () => {
     const makeQb = () => {
       const qb: Record<string, jest.Mock> = {};
-      qb.leftJoin = jest.fn().mockReturnValue(qb);
-      qb.addSelect = jest.fn().mockReturnValue(qb);
+      qb.leftJoinAndSelect = jest.fn().mockReturnValue(qb);
       qb.orderBy = jest.fn().mockReturnValue(qb);
       qb.addOrderBy = jest.fn().mockReturnValue(qb);
       qb.limit = jest.fn().mockReturnValue(qb);
@@ -294,8 +293,7 @@ describe('PostsService', () => {
       expect(result.items).toBe(posts);
       expect(result.nextCursor).toBeNull();
       expect(repo.createQueryBuilder).toHaveBeenCalledWith('post');
-      expect(qb.leftJoin).toHaveBeenCalledWith('post.author', 'author');
-      expect(qb.addSelect).toHaveBeenCalledWith(['author.id', 'author.name']);
+      expect(qb.leftJoinAndSelect).toHaveBeenCalledWith('post.author', 'author');
       expect(qb.orderBy).toHaveBeenCalledWith('post.createdAt', 'DESC');
       expect(qb.addOrderBy).toHaveBeenCalledWith('post.id', 'DESC');
       expect(qb.limit).toHaveBeenCalledWith(21);
