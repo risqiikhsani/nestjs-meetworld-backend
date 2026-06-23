@@ -31,6 +31,16 @@ export class UsersService {
     });
   }
 
+  // Loads a user with `passwordHash` selected. Used by AuthService to verify
+  // the current password before rotation. Returns null (not throw) on miss
+  // so the auth layer can decide how to map "not found" to a response.
+  findOneWithPasswordHash(id: string): Promise<User | null> {
+    return this.usersRepository.findOne({
+      where: { id },
+      select: ['id', 'passwordHash'],
+    });
+  }
+
   async findOne(id: string): Promise<User> {
     const user = await this.usersRepository.findOneBy({ id });
     if (!user) {
@@ -39,8 +49,16 @@ export class UsersService {
     return user;
   }
 
-  async create(dto: CreateUserDto): Promise<User> {
+  // `passwordHash` is the *already-bcrypted* value. Hashing is owned by
+  // `AuthService` (the only place that imports `bcrypt`); this service just
+  // persists what's handed to it. `CreateUserDto` and `UpdateUserDto` don't
+  // expose `passwordHash`, so the global `ValidationPipe` rejects/forbids
+  // any inbound `passwordHash` on the user routes.
+  async create(dto: CreateUserDto, passwordHash?: string): Promise<User> {
     const entity = this.usersRepository.create(dto);
+    if (passwordHash !== undefined) {
+      entity.passwordHash = passwordHash;
+    }
     return this.usersRepository.save(entity);
   }
 
@@ -74,6 +92,13 @@ export class UsersService {
 
       return saved;
     });
+  }
+
+  // Persists a pre-hashed password. The hash is computed by the caller
+  // (AuthService) — this method never sees plaintext. Used both for the
+  // initial password at register time and for rotation via PATCH /auth/password.
+  async setPasswordHash(id: string, passwordHash: string): Promise<void> {
+    await this.usersRepository.update(id, { passwordHash });
   }
 
   async remove(id: string): Promise<void> {

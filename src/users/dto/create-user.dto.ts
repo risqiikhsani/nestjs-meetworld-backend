@@ -18,7 +18,7 @@ export class CreateUserDto {
   name!: string;
 
   @ApiPropertyOptional({
-    description: 'URL of the user\'s avatar image.',
+    description: "URL of the user's avatar image.",
     format: 'uri',
     maxLength: 500,
   })
@@ -26,16 +26,4 @@ export class CreateUserDto {
   @IsString()
   @Length(1, 500)
   avatarUrl?: string;
-
-  @ApiPropertyOptional({
-    description:
-      'bcrypt hash. Server-managed — direct callers should not set this. ' +
-      'New users are created via `POST /api/auth/register`.',
-    minLength: 60,
-    maxLength: 60,
-  })
-  @IsOptional()
-  @IsString()
-  @Length(60, 60)
-  passwordHash?: string;
 }

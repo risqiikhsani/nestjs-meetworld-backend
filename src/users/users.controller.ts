@@ -61,6 +61,11 @@ export class UsersController {
     return this.usersService.update(id, dto);
   }
 
+  // `passwordHash` is intentionally *not* on `UpdateUserDto` (it's stripped
+  // from `CreateUserDto` and inherits via `PartialType`), so the global
+  // `ValidationPipe` rejects/forbids `passwordHash` on `PATCH /api/users/:id`.
+  // Password rotation lives on `PATCH /api/auth/password` instead.
+
   @Delete(':id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Delete a user' })
