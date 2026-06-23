@@ -12,7 +12,7 @@ import { PostsService } from './posts.service';
 type RepoMock = jest.Mocked<
   Pick<
     Repository<Post>,
-    'find' | 'findOneBy' | 'create' | 'save' | 'remove' | 'createQueryBuilder'
+    'find' | 'findOne' | 'findOneBy' | 'create' | 'save' | 'remove' | 'createQueryBuilder'
   >
 >;
 type RedisMock = jest.Mocked<Pick<Redis, 'get' | 'set' | 'del' | 'ping'>>;
@@ -26,6 +26,7 @@ describe('PostsService', () => {
   beforeEach(async () => {
     repo = {
       find: jest.fn(),
+      findOne: jest.fn(),
       findOneBy: jest.fn(),
       create: jest.fn(),
       save: jest.fn(),
@@ -65,6 +66,7 @@ describe('PostsService', () => {
     expect(repo.find).toHaveBeenCalledWith({
       where: { authorId: 'u1' },
       order: { createdAt: 'DESC' },
+      relations: ['author'],
     });
   });
 
@@ -117,16 +119,19 @@ describe('PostsService', () => {
 
   it('findOne returns the post by id without scoping to a user', async () => {
     const post = { id: 'p1', authorId: 'u1' } as Post;
-    repo.findOneBy.mockResolvedValue(post);
+    repo.findOne.mockResolvedValue(post);
     redis.get.mockResolvedValue(null);
 
     await expect(service.findOne('p1')).resolves.toBe(post);
-    expect(repo.findOneBy).toHaveBeenCalledWith({ id: 'p1' });
+    expect(repo.findOne).toHaveBeenCalledWith({
+      where: { id: 'p1' },
+      relations: ['author'],
+    });
     expect(usersService.findOne).not.toHaveBeenCalled();
   });
 
   it('findOne throws ResourceNotFoundException when the post is missing', async () => {
-    repo.findOneBy.mockResolvedValue(null);
+    repo.findOne.mockResolvedValue(null);
     redis.get.mockResolvedValue(null);
 
     await expect(service.findOne('p1')).rejects.toBeInstanceOf(
@@ -139,12 +144,12 @@ describe('PostsService', () => {
     redis.get.mockResolvedValue(JSON.stringify(cached));
 
     await expect(service.findOne('p1')).resolves.toEqual(cached);
-    expect(repo.findOneBy).not.toHaveBeenCalled();
+    expect(repo.findOne).not.toHaveBeenCalled();
   });
 
   it('findOne writes to cache after a DB miss', async () => {
     const post = { id: 'p1', authorId: 'u1', title: 't' } as Post;
-    repo.findOneBy.mockResolvedValue(post);
+    repo.findOne.mockResolvedValue(post);
     redis.get.mockResolvedValue(null);
 
     await service.findOne('p1');
@@ -160,7 +165,7 @@ describe('PostsService', () => {
   it('findOne falls through to DB when redis.get throws', async () => {
     redis.get.mockRejectedValue(new Error('READONLY'));
     const post = { id: 'p1', authorId: 'u1' } as Post;
-    repo.findOneBy.mockResolvedValue(post);
+    repo.findOne.mockResolvedValue(post);
 
     await expect(service.findOne('p1')).resolves.toBe(post);
   });
@@ -179,7 +184,7 @@ describe('PostsService', () => {
 
   it('update fetches, asserts ownership, merges, and saves the post', async () => {
     const post = { id: 'p1', authorId: 'u1', title: 't', body: 'b' } as Post;
-    repo.findOneBy.mockResolvedValue(post);
+    repo.findOne.mockResolvedValue(post);
     repo.save.mockResolvedValue({ ...post, title: 't2' });
     redis.get.mockResolvedValue(null);
 
@@ -196,7 +201,7 @@ describe('PostsService', () => {
 
   it('update throws ForbiddenException when the caller is not the author', async () => {
     const post = { id: 'p1', authorId: 'u1' } as Post;
-    repo.findOneBy.mockResolvedValue(post);
+    repo.findOne.mockResolvedValue(post);
     redis.get.mockResolvedValue(null);
 
     await expect(service.update('p1', 'u2', { title: 't2' })).rejects.toThrow(
@@ -208,7 +213,7 @@ describe('PostsService', () => {
 
   it('remove fetches, asserts ownership, then deletes the post', async () => {
     const post = { id: 'p1', authorId: 'u1' } as Post;
-    repo.findOneBy.mockResolvedValue(post);
+    repo.findOne.mockResolvedValue(post);
     repo.remove.mockResolvedValue(post);
     redis.get.mockResolvedValue(null);
 
@@ -223,7 +228,7 @@ describe('PostsService', () => {
 
   it('remove throws ForbiddenException when the caller is not the author', async () => {
     const post = { id: 'p1', authorId: 'u1' } as Post;
-    repo.findOneBy.mockResolvedValue(post);
+    repo.findOne.mockResolvedValue(post);
     redis.get.mockResolvedValue(null);
 
     await expect(service.remove('p1', 'u2')).rejects.toThrow(
@@ -236,7 +241,7 @@ describe('PostsService', () => {
   it('still completes remove when redis.del throws', async () => {
     redis.del.mockRejectedValue(new Error('ETIMEDOUT'));
     const post = { id: 'p1', authorId: 'u1' } as Post;
-    repo.findOneBy.mockResolvedValue(post);
+    repo.findOne.mockResolvedValue(post);
     repo.remove.mockResolvedValue(post);
     redis.get.mockResolvedValue(null);
 

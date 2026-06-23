@@ -317,6 +317,65 @@
         ]
       }
     },
+    "/api/posts/feed": {
+      "get": {
+        "operationId": "FeedController_findFeed",
+        "parameters": [
+          {
+            "name": "cursor",
+            "required": false,
+            "in": "query",
+            "description": "Opaque pagination token returned as `nextCursor` from the previous page. Omit to fetch the most recent page.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "required": false,
+            "in": "query",
+            "description": "Page size. Defaults to 20, max 50.",
+            "schema": {
+              "minimum": 1,
+              "maximum": 50,
+              "default": 20,
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FeedResponseDto"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Global feed of posts from every user, newest first",
+        "tags": [
+          "posts"
+        ]
+      }
+    },
     "/api/posts/{id}": {
       "get": {
         "operationId": "PostsController_findOne",
@@ -549,65 +608,6 @@
           }
         ],
         "summary": "Create a post as the authenticated user",
-        "tags": [
-          "posts"
-        ]
-      }
-    },
-    "/api/posts/feed": {
-      "get": {
-        "operationId": "FeedController_findFeed",
-        "parameters": [
-          {
-            "name": "cursor",
-            "required": false,
-            "in": "query",
-            "description": "Opaque pagination token returned as `nextCursor` from the previous page. Omit to fetch the most recent page.",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "limit",
-            "required": false,
-            "in": "query",
-            "description": "Page size. Defaults to 20, max 50.",
-            "schema": {
-              "minimum": 1,
-              "maximum": 50,
-              "default": 20,
-              "type": "number"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/FeedResponseDto"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "Global feed of posts from every user, newest first",
         "tags": [
           "posts"
         ]
@@ -1681,6 +1681,27 @@
           "redis"
         ]
       },
+      "FeedResponseDto": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Post"
+            }
+          },
+          "nextCursor": {
+            "type": "object",
+            "description": "Opaque token to pass as `cursor` to fetch the next page. `null` when there are no more posts.",
+            "nullable": true,
+            "example": "eyJ0IjoiMjAyNi0wNi0xOFQxMjozNDoxNloifQ"
+          }
+        },
+        "required": [
+          "items",
+          "nextCursor"
+        ]
+      },
       "CreatePostDto": {
         "type": "object",
         "properties": {
@@ -1718,27 +1739,6 @@
             "maxLength": 10000
           }
         }
-      },
-      "FeedResponseDto": {
-        "type": "object",
-        "properties": {
-          "items": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/Post"
-            }
-          },
-          "nextCursor": {
-            "type": "object",
-            "description": "Opaque token to pass as `cursor` to fetch the next page. `null` when there are no more posts.",
-            "nullable": true,
-            "example": "eyJ0IjoiMjAyNi0wNi0xOFQxMjozNDoxNloifQ"
-          }
-        },
-        "required": [
-          "items",
-          "nextCursor"
-        ]
       },
       "UpdateProfileDto": {
         "type": "object",
