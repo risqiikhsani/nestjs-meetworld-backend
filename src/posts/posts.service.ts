@@ -149,10 +149,18 @@ export class PostsService {
     const effectiveLimit = this.clampLimit(limit);
     const decoded = cursor ? decodeCursor(cursor) : null;
 
+    // const qb = this.postsRepository
+    //   .createQueryBuilder('post')
+    //   .leftJoin('post.author', 'author')
+    //   .addSelect(['author.id', 'author.name'])
+    //   .orderBy('post.createdAt', 'DESC')
+    //   .addOrderBy('post.id', 'DESC')
+    //   .limit(effectiveLimit + 1);
+
     const qb = this.postsRepository
       .createQueryBuilder('post')
-      .leftJoin('post.author', 'author')
-      .addSelect(['author.id', 'author.name'])
+      // CHANGED: Use leftJoinAndSelect to pull all default author fields (email, createdAt, etc.)
+      .leftJoinAndSelect('post.author', 'author')
       .orderBy('post.createdAt', 'DESC')
       .addOrderBy('post.id', 'DESC')
       .limit(effectiveLimit + 1);
