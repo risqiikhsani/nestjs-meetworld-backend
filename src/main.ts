@@ -12,6 +12,12 @@ import * as path from 'path';
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule);
 
+  app.enableCors({
+    origin: true, // Replaces with the incoming request's origin (good for dev)
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
+    credentials: true,
+  });
+  
   app.setGlobalPrefix('api');
   app.useGlobalPipes(
     new ValidationPipe({
