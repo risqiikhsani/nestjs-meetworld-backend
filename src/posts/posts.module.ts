@@ -10,7 +10,7 @@ import { UserPostsController } from './user-posts.controller';
 
 @Module({
   imports: [TypeOrmModule.forFeature([Post]), UsersModule, RedisModule],
-  controllers: [PostsController, FeedController, UserPostsController],
+  controllers: [FeedController, PostsController, UserPostsController],
   providers: [PostsService],
   exports: [PostsService],
 })
