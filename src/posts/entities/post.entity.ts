@@ -1,4 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
 import {
   Column,
   CreateDateColumn,
@@ -45,6 +46,7 @@ export class Post {
   authorId!: string;
 
   @ApiProperty({ type: () => User })
+  @Type(() => User)
   @ManyToOne(() => User, (user) => user.posts, {
     onDelete: 'CASCADE',
     nullable: false,

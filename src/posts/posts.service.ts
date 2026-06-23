@@ -99,9 +99,10 @@ export class PostsService {
       );
     }
 
-    const post = await this.postsRepository.findOne(
-      {where: {id}, relations: ["author"]}
-    );
+    const post = await this.postsRepository.findOne({
+      where: { id },
+      relations: ['author'],
+    });
     if (!post) {
       throw new ResourceNotFoundException('Post', id);
     }

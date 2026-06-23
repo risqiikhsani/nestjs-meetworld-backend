@@ -12,7 +12,13 @@ import { PostsService } from './posts.service';
 type RepoMock = jest.Mocked<
   Pick<
     Repository<Post>,
-    'find' | 'findOne' | 'findOneBy' | 'create' | 'save' | 'remove' | 'createQueryBuilder'
+    | 'find'
+    | 'findOne'
+    | 'findOneBy'
+    | 'create'
+    | 'save'
+    | 'remove'
+    | 'createQueryBuilder'
   >
 >;
 type RedisMock = jest.Mocked<Pick<Redis, 'get' | 'set' | 'del' | 'ping'>>;
