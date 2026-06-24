@@ -39,24 +39,28 @@ jobs:
           node-version: 22
           cache: pnpm
 
-      - run: pnpm install --frozen-lockfile
-      - run: pnpm run build
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build application
+        run: pnpm build
+
       - name: Run database migrations
-        run: pnpm run migration:run
+        run: pnpm typeorm migration:run -d src/data-source.ts
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           NODE_ENV: production
 
-  deploy-prod:
-    needs: migrate-prod
-    runs-on: ubuntu-latest
-    environment: production
-    steps:
-      - name: Deploy application
-        run: |
-          echo "Add your deploy step here."
-          echo "Examples:"
-          echo "  - fly deploy"
-          echo "  - railway up"
-          echo "  - rsync over SSH"
-          echo "  - docker push + container restart"
+  # deploy-prod:
+  #   needs: migrate-prod
+  #   runs-on: ubuntu-latest
+  #   environment: production
+  #   steps:
+  #     - name: Deploy application
+  #       run: |
+  #         echo "Add your deploy step here."
+  #         echo "Examples:"
+  #         echo "  - fly deploy"
+  #         echo "  - railway up"
+  #         echo "  - rsync over SSH"
+  #         echo "  - docker push + container restart"
