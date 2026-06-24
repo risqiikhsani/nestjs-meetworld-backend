@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Storage, StorageOptions } from '@google-cloud/storage';
+import { Storage } from '@google-cloud/storage';
 import { StorageService } from './storage.abstract';
 
 @Injectable()
@@ -12,19 +12,11 @@ export class GcsStorageService extends StorageService {
     super();
     this.bucketName = config.getOrThrow<string>('GCS_BUCKET');
 
-    const projectId =
-      config.get<string>('GCS_PROJECT_ID') ??
-      config.get<string>('GOOGLE_CLOUD_PROJECT');
-
-    const keyFilename =
-      config.get<string>('GCS_KEY_FILENAME') ??
-      config.get<string>('GOOGLE_APPLICATION_CREDENTIALS');
-
-    const opts: StorageOptions = {
-      ...(projectId ? { projectId } : {}),
-      ...(keyFilename ? { keyFilename } : {}),
-    };
-    this.gcs = new Storage(opts);
+    // The @google-cloud/storage SDK auto-discovers credentials from
+    // GOOGLE_APPLICATION_CREDENTIALS and the project from
+    // GOOGLE_CLOUD_PROJECT via the process env. 
+    // We deliberately don't read them from ConfigService — set the env vars on the process.
+    this.gcs = new Storage();
   }
 
   async upload(

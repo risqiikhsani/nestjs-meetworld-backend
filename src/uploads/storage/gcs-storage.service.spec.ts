@@ -42,73 +42,21 @@ describe('GcsStorageService', () => {
     expect(() => new GcsStorageService(makeConfig({}))).toThrow(/GCS_BUCKET/);
   });
 
-  it('constructs Storage without projectId or keyFilename when none are set', () => {
+  it('constructs Storage without options (SDK auto-discovers credentials)', () => {
     const svc = new GcsStorageService(makeConfig({ GCS_BUCKET: 'my-bucket' }));
     expect(gcsMock.Storage).toHaveBeenCalledTimes(1);
-    expect(gcsMock.Storage).toHaveBeenCalledWith({});
+    expect(gcsMock.Storage).toHaveBeenCalledWith();
     expect(svc).toBeInstanceOf(GcsStorageService);
   });
 
-  it('passes projectId and keyFilename from GCS_* vars when present', () => {
-    new GcsStorageService(
-      makeConfig({
-        GCS_BUCKET: 'my-bucket',
-        GCS_PROJECT_ID: 'my-project',
-        GCS_KEY_FILENAME: '/path/to/sa.json',
-      }),
-    );
-    expect(gcsMock.Storage).toHaveBeenCalledWith({
-      projectId: 'my-project',
-      keyFilename: '/path/to/sa.json',
+  it('does not read GOOGLE_CLOUD_PROJECT or GOOGLE_APPLICATION_CREDENTIALS from ConfigService', () => {
+    const config = makeConfig({
+      GCS_BUCKET: 'my-bucket',
+      GOOGLE_CLOUD_PROJECT: 'should-be-ignored',
+      GOOGLE_APPLICATION_CREDENTIALS: '/should-be-ignored.json',
     });
-  });
-
-  it('falls back to GOOGLE_CLOUD_PROJECT when GCS_PROJECT_ID is unset', () => {
-    new GcsStorageService(
-      makeConfig({
-        GCS_BUCKET: 'my-bucket',
-        GOOGLE_CLOUD_PROJECT: 'gcp-fallback-project',
-      }),
-    );
-    expect(gcsMock.Storage).toHaveBeenCalledWith({
-      projectId: 'gcp-fallback-project',
-    });
-  });
-
-  it('prefers GCS_PROJECT_ID over GOOGLE_CLOUD_PROJECT', () => {
-    new GcsStorageService(
-      makeConfig({
-        GCS_BUCKET: 'my-bucket',
-        GCS_PROJECT_ID: 'explicit',
-        GOOGLE_CLOUD_PROJECT: 'fallback',
-      }),
-    );
-    expect(gcsMock.Storage).toHaveBeenCalledWith({ projectId: 'explicit' });
-  });
-
-  it('falls back to GOOGLE_APPLICATION_CREDENTIALS when GCS_KEY_FILENAME is unset', () => {
-    new GcsStorageService(
-      makeConfig({
-        GCS_BUCKET: 'my-bucket',
-        GOOGLE_APPLICATION_CREDENTIALS: '/path/from/adc.json',
-      }),
-    );
-    expect(gcsMock.Storage).toHaveBeenCalledWith({
-      keyFilename: '/path/from/adc.json',
-    });
-  });
-
-  it('prefers GCS_KEY_FILENAME over GOOGLE_APPLICATION_CREDENTIALS', () => {
-    new GcsStorageService(
-      makeConfig({
-        GCS_BUCKET: 'my-bucket',
-        GCS_KEY_FILENAME: '/explicit.json',
-        GOOGLE_APPLICATION_CREDENTIALS: '/adc.json',
-      }),
-    );
-    expect(gcsMock.Storage).toHaveBeenCalledWith({
-      keyFilename: '/explicit.json',
-    });
+    new GcsStorageService(config);
+    expect(gcsMock.Storage).toHaveBeenCalledWith();
   });
 
   it('upload calls bucket().file().save() with the right args and returns the public URL', async () => {
