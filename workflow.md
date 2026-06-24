@@ -11,13 +11,15 @@ pnpm typeorm migration:run -d src/data-source.ts
 
 # FIX OUT OF ORDER MIGRATION:
 
+pnpm build
 pnpm typeorm schema:sync -d src/data-source.ts
 
 OR
 
+pnpm build
 pnpm typeorm migration:generate src/database/migrations/InitialBaseline -d src/data-source.ts
-
 
 # how to drop database:
 
+pnpm build
 pnpm typeorm schema:drop -d src/data-source.ts
