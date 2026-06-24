@@ -2,9 +2,9 @@ name: Build and Push to Docker Hub
 
 # Trigger the workflow only when code is pushed to the 'main' branch
 on:
-  push:
-    branches:
-      - main
+#   push:
+#     branches:
+#       - main
 
 jobs:
   build-and-push:
