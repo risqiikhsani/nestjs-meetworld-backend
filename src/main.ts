@@ -13,7 +13,7 @@ async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule);
 
   app.enableCors({
-    origin: true, // Replaces with the incoming request's origin (good for dev)
+    origin: true, 
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     credentials: true,
   });
@@ -33,21 +33,31 @@ async function bootstrap(): Promise<void> {
   const reflector = app.get(Reflector);
   app.useGlobalGuards(new JwtAuthGuard(reflector));
 
-  // Build the OpenAPI document from the fully-configured app so every
-  // @ApiTags / @ApiBearerAuth / @ApiProperty annotation is picked up.
   const swaggerConfig: DocumentBuilder = buildSwaggerConfig();
   const document = SwaggerModule.createDocument(app, swaggerConfig.build());
   SwaggerModule.setup('docs', app, document, { useGlobalPrefix: true });
 
-  // automatically create openapi.json schema for testing
-  fs.writeFileSync(
-    path.join(__dirname, '../openapi.json'),
-    JSON.stringify(document, null, 2),
-  );
+  // Automatically create openapi.json schema
+  // (Using process.cwd() ensures it writes safely relative to the project root directory)
+  try {
+    fs.writeFileSync(
+      path.join(process.cwd(), 'openapi.json'),
+      JSON.stringify(document, null, 2),
+    );
+  } catch (error) {
+    console.warn('Failed to write openapi.json:', error);
+  }
 
   const config = app.get(ConfigService);
-  const port = parseInt(config.get<string>('PORT') ?? '3000', 10);
+  
+  // 💡 CLOUD RUN FIX 1: Prioritize process.env.PORT over config service defaults, 
+  // because Cloud Run injects it directly into the environment.
+  const port = parseInt(process.env.PORT || config.get<string>('PORT') || '8080', 10);
 
-  await app.listen(port);
+  // 💡 CLOUD RUN FIX 2: Explicitly pass '0.0.0.0' as the host.
+  await app.listen(port, '0.0.0.0');
+  
+  console.log(`Application is running on port ${port} bound to 0.0.0.0`);
 }
+
 void bootstrap();
