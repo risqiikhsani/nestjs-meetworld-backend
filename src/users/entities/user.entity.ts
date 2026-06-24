@@ -48,6 +48,10 @@ export class User {
   })
   passwordHash!: string | null;
 
+  @ApiProperty({ nullable: true, format: 'uri', maxLength: 500 })
+  @Column({ name: 'avatar_url', type: 'varchar', length: 500, nullable: true })
+  avatarUrl!: string | null;
+
   @ApiProperty({ type: () => Profile, required: false })
   @OneToOne(() => Profile, (profile) => profile.user, { cascade: false })
   profile?: Profile;

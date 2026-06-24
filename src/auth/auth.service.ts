@@ -1,7 +1,11 @@
-import { ConflictException, Injectable } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
-import { CreateUserDto } from '../users/dto/create-user.dto';
+import { ResourceNotFoundException } from '../common/exceptions/resource-not-found.exception';
 import { User } from '../users/entities/user.entity';
 import { UsersService } from '../users/users.service';
 import { JwtPayload } from './strategies/jwt.strategy';
@@ -31,13 +35,14 @@ export class AuthService {
       throw new ConflictException('Email already registered');
     }
 
+    // Hashing is owned here — `UsersService` only sees the bcrypt output.
+    // `CreateUserDto` no longer carries `passwordHash`, so there is no
+    // public path that writes the column directly.
     const passwordHash = await bcrypt.hash(dto.password, BCRYPT_COST);
-    const createDto: CreateUserDto = {
-      email: dto.email,
-      name: dto.name,
+    const user = await this.usersService.create(
+      { email: dto.email, name: dto.name },
       passwordHash,
-    };
-    const user = await this.usersService.create(createDto);
+    );
 
     return this.signAndShape(user);
   }
@@ -53,6 +58,32 @@ export class AuthService {
 
   async login(user: User): Promise<{ access_token: string; user: SafeUser }> {
     return this.signAndShape(user);
+  }
+
+  // Verify the caller's current password, then rotate to a fresh bcrypt hash.
+  // `UsersService` does the data access; this service owns the crypto and the
+  // caller's view of correctness (401 on wrong current password, 401 on
+  // passwordless legacy users, 404 on missing user).
+  async updatePassword(
+    userId: string,
+    currentPassword: string,
+    newPassword: string,
+  ): Promise<void> {
+    const user = await this.usersService.findOneWithPasswordHash(userId);
+    if (!user) {
+      throw new ResourceNotFoundException('User', userId);
+    }
+    if (user.passwordHash === null) {
+      throw new UnauthorizedException(
+        'No password is set for this user; contact an administrator',
+      );
+    }
+    const matches = await bcrypt.compare(currentPassword, user.passwordHash);
+    if (!matches) {
+      throw new UnauthorizedException('Current password is incorrect');
+    }
+    const newHash = await bcrypt.hash(newPassword, BCRYPT_COST);
+    await this.usersService.setPasswordHash(userId, newHash);
   }
 
   private async signAndShape(

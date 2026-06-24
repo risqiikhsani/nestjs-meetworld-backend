@@ -47,6 +47,11 @@
             }
           }
         },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
         "summary": "Register a new user",
         "tags": [
           "auth"
@@ -89,7 +94,72 @@
             }
           }
         },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
         "summary": "Log in with email + password",
+        "tags": [
+          "auth"
+        ]
+      }
+    },
+    "/api/auth/password": {
+      "patch": {
+        "operationId": "AuthController_updatePassword",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UpdatePasswordDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Current password is incorrect, or the user has no password set.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Change the current user's password",
         "tags": [
           "auth"
         ]
@@ -1381,6 +1451,25 @@
           "password"
         ]
       },
+      "UpdatePasswordDto": {
+        "type": "object",
+        "properties": {
+          "currentPassword": {
+            "type": "string",
+            "description": "Current plaintext password. Verified against the stored bcrypt hash before the change is applied.",
+            "minLength": 1
+          },
+          "newPassword": {
+            "type": "string",
+            "description": "New plaintext password. Bcrypt-hashed server-side at cost 12 before being persisted.",
+            "minLength": 8
+          }
+        },
+        "required": [
+          "currentPassword",
+          "newPassword"
+        ]
+      },
       "Comment": {
         "type": "object",
         "properties": {
@@ -1512,6 +1601,12 @@
             "minLength": 60,
             "maxLength": 60
           },
+          "avatarUrl": {
+            "type": "object",
+            "nullable": true,
+            "format": "uri",
+            "maxLength": 500
+          },
           "profile": {
             "$ref": "#/components/schemas/Profile"
           },
@@ -1541,6 +1636,7 @@
           "email",
           "name",
           "passwordHash",
+          "avatarUrl",
           "posts",
           "comments",
           "createdAt",
@@ -1621,11 +1717,11 @@
             "minLength": 1,
             "maxLength": 80
           },
-          "passwordHash": {
+          "avatarUrl": {
             "type": "string",
-            "description": "bcrypt hash. Server-managed — direct callers should not set this. New users are created via `POST /api/auth/register`.",
-            "minLength": 60,
-            "maxLength": 60
+            "description": "URL of the user's avatar image.",
+            "format": "uri",
+            "maxLength": 500
           }
         }
       },
