@@ -1,10 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { ConfigService } from '@nestjs/config';
-import { PutObjectCommand, S3Client } from '@aws-sdk/client-s3';
-import { S3_CLIENT } from './uploads.constants';
 import { UploadsService } from './uploads.service';
-
-type S3Mock = jest.Mocked<Pick<S3Client, 'send' | 'config'>>;
+import { StorageService } from './storage/storage.abstract';
 
 function makeFile(
   overrides: Partial<Express.Multer.File> = {},
@@ -22,72 +18,52 @@ function makeFile(
 
 describe('UploadsService', () => {
   let service: UploadsService;
-  let s3: S3Mock;
-  const config = {
-    getOrThrow: jest.fn((key: string) =>
-      key === 'AWS_S3_BUCKET' ? 'test-bucket' : undefined,
-    ),
-  } as unknown as ConfigService;
+  let storage: jest.Mocked<Pick<StorageService, 'upload'>>;
 
   beforeEach(async () => {
-    s3 = {
-      send: jest.fn().mockResolvedValue({}),
-      config: { region: () => 'us-east-1' },
-    } as unknown as S3Mock;
+    storage = { upload: jest.fn() };
 
-    const module: TestingModule = await Test.createTestingModule({
+    const mod: TestingModule = await Test.createTestingModule({
       providers: [
         UploadsService,
-        { provide: S3_CLIENT, useValue: s3 },
-        { provide: ConfigService, useValue: config },
+        { provide: StorageService, useValue: storage },
       ],
     }).compile();
 
-    service = module.get(UploadsService);
+    service = mod.get(UploadsService);
   });
 
-  it('uploadOne sends a PutObjectCommand with public-read ACL and returns the public URL', async () => {
+  it('uploadOne generates a dated/uuid key and delegates to storage', async () => {
+    storage.upload.mockResolvedValue('https://example/x');
     const file = makeFile();
+
     const url = await service.uploadOne(file);
 
-    expect(s3.send).toHaveBeenCalledTimes(1);
-    const command = s3.send.mock.calls[0][0] as PutObjectCommand;
-    expect(command).toBeInstanceOf(PutObjectCommand);
-    expect(command.input.Bucket).toBe('test-bucket');
-    expect(command.input.ACL).toBe('public-read');
-    expect(command.input.Body).toBe(file.buffer);
-    expect(command.input.ContentType).toBe('image/png');
-    expect(command.input.Key).toMatch(
-      /^\d{4}-\d{2}-\d{2}\/[0-9a-f-]{36}\.png$/,
-    );
-    expect(url).toBe(
-      `https://test-bucket.s3.us-east-1.amazonaws.com/${command.input.Key}`,
-    );
+    expect(storage.upload).toHaveBeenCalledTimes(1);
+    const [key, body, ct] = storage.upload.mock.calls[0];
+    expect(key).toMatch(/^\d{4}-\d{2}-\d{2}\/[0-9a-f-]{36}\.png$/);
+    expect(body).toBe(file.buffer);
+    expect(ct).toBe('image/png');
+    expect(url).toBe('https://example/x');
   });
 
-  it('uploadMany calls send once per file and returns URLs in the same order', async () => {
-    const files = [
+  it('uploadMany preserves order and calls storage per file', async () => {
+    storage.upload
+      .mockResolvedValueOnce('https://a/1')
+      .mockResolvedValueOnce('https://a/2');
+
+    const urls = await service.uploadMany([
       makeFile(),
       makeFile({ originalname: 'b.jpg', mimetype: 'image/jpeg' }),
-    ];
-    const urls = await service.uploadMany(files);
+    ]);
 
-    expect(s3.send).toHaveBeenCalledTimes(2);
-    expect(urls).toHaveLength(2);
-    for (const u of urls) {
-      expect(u).toMatch(
-        /^https:\/\/test-bucket\.s3\.us-east-1\.amazonaws\.com\//,
-      );
-    }
-    const keys = (s3.send.mock.calls as Array<[PutObjectCommand]>).map(
-      ([cmd]) => cmd.input.Key as string,
-    );
-    expect(keys[0]).toMatch(/\.png$/);
-    expect(keys[1]).toMatch(/\.jpg$/);
+    expect(urls).toEqual(['https://a/1', 'https://a/2']);
+    expect(storage.upload).toHaveBeenCalledTimes(2);
+    expect(storage.upload.mock.calls[1][0]).toMatch(/\.jpg$/);
   });
 
-  it('uploadOne propagates S3 errors', async () => {
-    s3.send.mockRejectedValueOnce(new Error('AccessDenied'));
-    await expect(service.uploadOne(makeFile())).rejects.toThrow('AccessDenied');
+  it('uploadOne propagates storage errors', async () => {
+    storage.upload.mockRejectedValueOnce(new Error('boom'));
+    await expect(service.uploadOne(makeFile())).rejects.toThrow('boom');
   });
 });

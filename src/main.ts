@@ -13,7 +13,7 @@ async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule);
 
   app.enableCors({
-    origin: true, 
+    origin: true,
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     credentials: true,
   });
@@ -49,14 +49,17 @@ async function bootstrap(): Promise<void> {
   }
 
   const config = app.get(ConfigService);
-  
-  // 💡 CLOUD RUN FIX 1: Prioritize process.env.PORT over config service defaults, 
+
+  // 💡 CLOUD RUN FIX 1: Prioritize process.env.PORT over config service defaults,
   // because Cloud Run injects it directly into the environment.
-  const port = parseInt(process.env.PORT || config.get<string>('PORT') || '8080', 10);
+  const port = parseInt(
+    process.env.PORT || config.get<string>('PORT') || '8080',
+    10,
+  );
 
   // 💡 CLOUD RUN FIX 2: Explicitly pass '0.0.0.0' as the host.
   await app.listen(port, '0.0.0.0');
-  
+
   console.log(`Application is running on port ${port} bound to 0.0.0.0`);
 }
 
