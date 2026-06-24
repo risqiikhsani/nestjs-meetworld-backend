@@ -39,6 +39,9 @@ export function buildSwaggerConfig(): DocumentBuilder {
       'Comments scoped under a post (`/posts/:postId/comments`).',
     )
     .addTag('profiles', 'Profile scoped under a user (`:userId/profile`).')
-    .addTag('uploads', 'Multipart file uploads to S3.')
+    .addTag(
+      'uploads',
+      'Multipart file uploads to pluggable object storage (S3 or GCS).',
+    )
     .addTag('health', 'Liveness/readiness probe (public).');
 }

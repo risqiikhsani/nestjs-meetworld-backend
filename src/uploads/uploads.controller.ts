@@ -48,7 +48,8 @@ export class UploadsController {
     },
   })
   @ApiOkResponse({
-    description: 'Public S3 URL of the uploaded object.',
+    description:
+      'Public URL of the uploaded object (provider-dependent: S3 or GCS).',
     schema: {
       type: 'string',
       example:
@@ -78,7 +79,7 @@ export class UploadsController {
     },
   })
   @ApiOkResponse({
-    description: 'Public S3 URLs in upload order.',
+    description: 'Public URLs in upload order (provider-dependent: S3 or GCS).',
     schema: {
       type: 'array',
       items: {
