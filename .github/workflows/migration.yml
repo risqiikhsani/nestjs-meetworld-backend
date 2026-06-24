@@ -1,59 +1,52 @@
-name: migration
+name: Build and Push to Docker Hub
 
 on:
   push:
-    branches: [main]
+    branches:
+      - main
 
 jobs:
-  test:
+  build-and-push:
     runs-on: ubuntu-latest
+    environment: production
+
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout Code
+        uses: actions/checkout@v4
 
-      # 1. Setup Node first
-      - uses: actions/setup-node@v4
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
         with:
-          node-version: 22
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # 2. Setup pnpm and handle caching here directly
-      - uses: pnpm/action-setup@v4
+      - name: Build and Push Docker Image
+        uses: docker/build-push-action@v6
         with:
-          version: 9
-          run_install: false
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/meetworld-backend:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/meetworld-backend:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
-      # 3. Get pnpm store directory for explicit caching if needed, 
-      # or rely on pnpm's built-in handling.
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+      # ==========================================
+      # DEPLOYING TO YOUR EXISTING CLOUD RUN
+      # ==========================================
 
-      - run: pnpm run lint
-      - run: pnpm test
-
-  migrate-prod:
-    needs: test
-    runs-on: ubuntu-latest
-    environment: production-requires-approval
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v4
+      - name: Google Auth
+        uses: google-github-actions/auth@v2
         with:
-          node-version: 22
+          credentials_json: ${{ secrets.GCP_SA_KEY }} # Make sure this key is added to GitHub Secrets!
 
-      - uses: pnpm/action-setup@v4
+      - name: Deploy to Cloud Run
+        uses: google-github-actions/deploy-cloudrun@v2
         with:
-          version: 9
-          run_install: false
-
-      # Using standard install instead of forcing the store cache interaction via setup-node
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: Build application
-        run: pnpm build
-
-      - name: Run database migrations
-        run: pnpm typeorm migration:run -d src/data-source.ts
-        env:
-          DATABASE_URL: ${{ secrets.DATABASE_URL }}
-          NODE_ENV: production
+          service: meetworld-backend  # Matches your exact service name
+          region: asia-southeast3     # Matches your exact region (Jakarta)
+          image: docker.io/${{ secrets.DOCKERHUB_USERNAME }}/meetworld-backend:${{ github.sha }}
