@@ -10,10 +10,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # 1. Setup pnpm FIRST
       - uses: pnpm/action-setup@v4
         with:
           version: 9
 
+      # 2. Setup node SECOND with caching
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -30,10 +32,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # 1. Setup pnpm FIRST
       - uses: pnpm/action-setup@v4
         with:
           version: 9
 
+      # 2. Setup node SECOND with caching
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -50,17 +54,3 @@ jobs:
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           NODE_ENV: production
-
-  # deploy-prod:
-  #   needs: migrate-prod
-  #   runs-on: ubuntu-latest
-  #   environment: production
-  #   steps:
-  #     - name: Deploy application
-  #       run: |
-  #         echo "Add your deploy step here."
-  #         echo "Examples:"
-  #         echo "  - fly deploy"
-  #         echo "  - railway up"
-  #         echo "  - rsync over SSH"
-  #         echo "  - docker push + container restart"
