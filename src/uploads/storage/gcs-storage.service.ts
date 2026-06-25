@@ -14,7 +14,7 @@ export class GcsStorageService extends StorageService {
 
     // The @google-cloud/storage SDK auto-discovers credentials from
     // GOOGLE_APPLICATION_CREDENTIALS and the project from
-    // GOOGLE_CLOUD_PROJECT via the process env. 
+    // GOOGLE_CLOUD_PROJECT via the process env.
     // We deliberately don't read them from ConfigService — set the env vars on the process.
     this.gcs = new Storage();
   }
