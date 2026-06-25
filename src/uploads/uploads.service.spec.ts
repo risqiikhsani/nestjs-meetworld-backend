@@ -37,14 +37,14 @@ describe('UploadsService', () => {
     storage.upload.mockResolvedValue('https://example/x');
     const file = makeFile();
 
-    const url = await service.uploadOne(file);
+    const result = await service.uploadOne(file);
 
     expect(storage.upload).toHaveBeenCalledTimes(1);
     const [key, body, ct] = storage.upload.mock.calls[0];
     expect(key).toMatch(/^\d{4}-\d{2}-\d{2}\/[0-9a-f-]{36}\.png$/);
     expect(body).toBe(file.buffer);
     expect(ct).toBe('image/png');
-    expect(url).toBe('https://example/x');
+    expect(result).toEqual({ url: 'https://example/x' });
   });
 
   it('uploadMany preserves order and calls storage per file', async () => {
@@ -52,12 +52,12 @@ describe('UploadsService', () => {
       .mockResolvedValueOnce('https://a/1')
       .mockResolvedValueOnce('https://a/2');
 
-    const urls = await service.uploadMany([
+    const result = await service.uploadMany([
       makeFile(),
       makeFile({ originalname: 'b.jpg', mimetype: 'image/jpeg' }),
     ]);
 
-    expect(urls).toEqual(['https://a/1', 'https://a/2']);
+    expect(result).toEqual({ urls: ['https://a/1', 'https://a/2'] });
     expect(storage.upload).toHaveBeenCalledTimes(2);
     expect(storage.upload.mock.calls[1][0]).toMatch(/\.jpg$/);
   });
