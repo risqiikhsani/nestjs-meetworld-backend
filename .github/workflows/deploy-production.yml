@@ -1,0 +1,120 @@
+name: deploy-production
+
+# Tag-driven: push a `v*.*.*` tag to ship to production.
+# Tag from main after staging has been verified.
+on:
+  push:
+    tags: ['v*.*.*']
+
+# Production releases must NEVER be aborted by another push to the same
+# tag. Different tag releases still queue independently via ref_name.
+concurrency:
+  group: prod-${{ github.ref_name }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  REGION: asia-southeast3
+  # github.ref_name yields the tag verbatim, e.g. "v1.0.0".
+  TAG: ${{ github.ref_name }}
+  IMAGE: asia-southeast3-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/meetworld/backend
+  SERVICE: meetworld-backend-prod
+
+jobs:
+  # ----- No approval gate: builds and pushes the release image as soon
+  # ----- as the tag lands. Reviewers don't need to babysit this.
+  build-and-push:
+    name: Build and push image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud --quiet auth configure-docker ${{ env.REGION }}-docker.pkg.dev
+
+      - uses: docker/setup-buildx-action@v3
+
+      - id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE }}
+          tags: |
+            type=raw,value=${{ env.TAG }}
+            type=raw,value=latest
+
+      - id: build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ----- GATE 1: production database migration.
+  # ----- Reviewers should verify the migration content before approving.
+  # ----- Schema changes go in BEFORE the new code ships, so the new
+  # ----- code never sees a missing column.
+  migrate-prod:
+    name: Migrate production database
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    environment: production-migrate
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm run build
+
+      - name: Run TypeORM migrations
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: pnpm typeorm migration:run -d src/data-source.ts
+
+  # ----- GATE 2: deploy the release to production Cloud Run.
+  # ----- Approving this job means: "I trust the migration succeeded and
+  # ----- I'm ready to serve the new image to live traffic."
+  deploy-prod:
+    name: Deploy to production
+    needs: migrate-prod
+    runs-on: ubuntu-latest
+    environment: production-deploy
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Deploy revision
+        run: |
+          gcloud run deploy "$SERVICE" \
+            --image="$IMAGE:$TAG" \
+            --region="$REGION" \
+            --platform=managed \
+            --allow-unauthenticated
