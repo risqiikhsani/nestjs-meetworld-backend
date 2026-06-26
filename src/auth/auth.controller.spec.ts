@@ -15,10 +15,7 @@ describe('AuthController @Throttle metadata', () => {
       LIMIT_KEY,
       AuthController.prototype.register,
     );
-    const ttl = Reflect.getMetadata(
-      TTL_KEY,
-      AuthController.prototype.register,
-    );
+    const ttl = Reflect.getMetadata(TTL_KEY, AuthController.prototype.register);
 
     expect(limit).toBe(3);
     expect(ttl).toBe(3_600_000);

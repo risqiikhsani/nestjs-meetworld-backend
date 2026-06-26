@@ -19,9 +19,7 @@ function makeContext(method: string, ip?: string): ExecutionContext {
   } as unknown as ExecutionContext;
 }
 
-function makeGuard(
-  env: Record<string, string | undefined> = {},
-): {
+function makeGuard(env: Record<string, string | undefined> = {}): {
   guard: ThrottlerBehindAuthGuard;
   superShouldSkip: jest.SpyInstance;
   superGetTracker: jest.SpyInstance;
@@ -34,17 +32,23 @@ function makeGuard(
   } as unknown as ConfigService;
 
   const guard = new ThrottlerBehindAuthGuard(
-    options as never,
-    storageService as never,
+    options,
+    storageService,
     reflector as never,
     configService,
   );
 
   const superShouldSkip = jest
-    .spyOn(Object.getPrototypeOf(ThrottlerBehindAuthGuard.prototype), 'shouldSkip')
+    .spyOn(
+      Object.getPrototypeOf(ThrottlerBehindAuthGuard.prototype),
+      'shouldSkip',
+    )
     .mockResolvedValue(false);
   const superGetTracker = jest
-    .spyOn(Object.getPrototypeOf(ThrottlerBehindAuthGuard.prototype), 'getTracker')
+    .spyOn(
+      Object.getPrototypeOf(ThrottlerBehindAuthGuard.prototype),
+      'getTracker',
+    )
     .mockResolvedValue('super-tracker');
 
   return { guard, superShouldSkip, superGetTracker };
@@ -77,7 +81,9 @@ describe('ThrottlerBehindAuthGuard', () => {
     });
 
     it('treats THROTTLE_ENABLED=true as enabled and delegates to super', async () => {
-      const { guard, superShouldSkip } = makeGuard({ THROTTLE_ENABLED: 'true' });
+      const { guard, superShouldSkip } = makeGuard({
+        THROTTLE_ENABLED: 'true',
+      });
       const ctx = makeContext('POST');
 
       const result = await guard.shouldSkip(ctx);

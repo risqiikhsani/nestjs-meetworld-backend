@@ -22,8 +22,9 @@ export class ThrottlerBehindAuthGuard extends ThrottlerGuard {
   ) {
     super(options, storageService, reflector);
     this.enabled =
-      (configService.get<string>('THROTTLE_ENABLED') ?? 'false').toLowerCase() ===
-      'true';
+      (
+        configService.get<string>('THROTTLE_ENABLED') ?? 'false'
+      ).toLowerCase() === 'true';
   }
 
   // 1. Feature flag — when disabled, skip throttling for every request. This
@@ -42,7 +43,7 @@ export class ThrottlerBehindAuthGuard extends ThrottlerGuard {
   }
 
   // Track by client IP (req.ip honors Express's `trust proxy` setting).
-  protected async getTracker(req: Request): Promise<string> {
-    return req.ip ?? 'unknown';
+  protected getTracker(req: Request): Promise<string> {
+    return Promise.resolve(req.ip ?? 'unknown');
   }
 }
