@@ -1,6 +1,7 @@
 import { ClassSerializerInterceptor, ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory, Reflector } from '@nestjs/core';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
@@ -10,7 +11,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 async function bootstrap(): Promise<void> {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
 
   app.enableCors({
     origin: true,
@@ -32,6 +33,12 @@ async function bootstrap(): Promise<void> {
 
   const reflector = app.get(Reflector);
   app.useGlobalGuards(new JwtAuthGuard(reflector));
+
+  // Cloud Run terminates the request at Google Cloud's HTTPS load balancer and
+  // forwards the original client IP in `X-Forwarded-For`. Without this,
+  // `req.ip` returns the LB's IP and every real user shares one throttler
+  // bucket, locking everyone out within minutes of traffic.
+  app.set('trust proxy', 1);
 
   const swaggerConfig: DocumentBuilder = buildSwaggerConfig();
   const document = SwaggerModule.createDocument(app, swaggerConfig.build());

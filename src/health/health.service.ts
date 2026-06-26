@@ -67,7 +67,10 @@ export class HealthService {
     try {
       const reply = await this.redis.ping();
       if (reply !== 'PONG') {
-        return { status: 'down', error: `unexpected PING reply: ${reply}` };
+        return {
+          status: 'down',
+          error: `unexpected PING reply: ${String(reply)}`,
+        };
       }
       return { status: 'up' };
     } catch (err) {
