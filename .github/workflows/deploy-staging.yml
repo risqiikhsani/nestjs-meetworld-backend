@@ -17,7 +17,7 @@ permissions:
 
 env:
   REGION: asia-southeast1
-  IMAGE: asia-southeast1-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/meetworld/backend
+  IMAGE: asia-southeast1-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/meetworld-backend/app
   SERVICE: meetworld-backend-staging
   TAG: staging
 
