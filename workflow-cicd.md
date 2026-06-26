@@ -1,4 +1,6 @@
-To get this CI/CD pipeline fully functional, you need to configure **Google Cloud Platform (GCP)** to allow GitHub Actions to securely authenticate and deploy resources, and then add those values to your **GitHub Secrets and Variables**.
+# Configure GCP
+
+you need to configure **Google Cloud Platform (GCP)** to allow GitHub Actions to securely authenticate and deploy resources, and then add those values to your **GitHub Secrets and Variables**.
 
 Here is the step-by-step setup guide.
 
