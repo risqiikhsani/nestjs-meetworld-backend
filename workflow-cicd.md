@@ -1,72 +1,121 @@
- Created:
-  - .github/workflows/ci.yml — lint + test + build on every PR and push to
-  dev/main. Cancels in-flight runs on the same ref.
-  - .github/workflows/deploy-dev.yml — auto-deploy on push to dev (plus
-  workflow_dispatch). Job chain build-and-push → migrate → deploy, all under
-  environment: dev.
-  - .github/workflows/deploy-staging.yml — auto-deploy on push to main (plus
-  workflow_dispatch). Same chain under environment: staging.
-  - .github/workflows/deploy-production.yml — tag-driven. Job chain
-  build-and-push (no gate) → migrate-prod (env: production-migrate) → deploy-prod
-  (env: production-deploy). Concurrency cancel-in-progress: false so a re-tag
-  never aborts an in-flight release.
+To get this CI/CD pipeline fully functional, you need to configure **Google Cloud Platform (GCP)** to allow GitHub Actions to securely authenticate and deploy resources, and then add those values to your **GitHub Secrets and Variables**.
 
-  Deleted:
-  - .github/workflows/deploy.yml (Docker Hub deploy)
-  - .github/workflows/migration.yml (parallel migration runner)
+Here is the step-by-step setup guide.
 
-  Updated:
-  - CLAUDE.md CI/CD section now describes the four-workflow structure, the WIF +
-  Artifact Registry setup, the two-gate production flow, the rollback command,
-  and the GitHub-side one-time setup.
+---
 
-  One-time setup you still need to do (not code)
+## Part 1: Google Cloud Platform (GCP) Setup
 
-  These have to happen in the GCP console and GitHub UI before the new pipelines
-  can run:
+Your workflows use **Workload Identity Federation (WIF)**. This is the modern, secure way to connect GitHub to GCP because it eliminates the need for long-lived, dangerous GCP service account JSON keys.
 
-  GCP project — full commands in the plan file at
-  C:\Users\user\.claude\plans\hi-i-want-to-abundant-torvalds.md. In short: enable
-  APIs, create the meetworld Artifact Registry repo in asia-southeast3, set up
-  the Workload Identity pool + provider for GitHub, create the github-deployer SA
-  with roles/artifactregistry.writer, roles/run.admin,
-  roles/iam.serviceAccountUser, and bind it to the pool. Then provision three
-  Cloud Run services (meetworld-backend-dev, -staging, -prod) as placeholders,
-  and three Postgres databases (dev / staging / prod).
+### 1. Create a Google Cloud Project
 
-  GitHub repo:
-  - Set the variable GCP_PROJECT_ID.
-  - Set the secrets GCP_WORKLOAD_IDENTITY_PROVIDER and GCP_SERVICE_ACCOUNT
-  (shared by all envs).
-  - Create four environments: dev, staging, production-migrate,
-  production-deploy. Only the two production-* environments need required
-  reviewers. Restrict them to tag pattern v*.*.*. The dev and staging
-  environments need a DATABASE_URL secret (one per env), and so do the
-  production-* environments (one prod DB connection string).
+If you haven't already, create a project in the Google Cloud Console and enable the following APIs:
 
-  Database connectivity from GitHub runners: GitHub-hosted runners have no static
-  egress IP, so the migration job can't reach a private Cloud SQL instance
-  directly. Easiest options — pick one before merging deploy-production.yml:
-  - Front each Cloud SQL DB with the Cloud SQL Auth Proxy (run as a sidecar
-  container in the migration job, or use Cloud Run's built-in
-  --add-cloudsql-instances flag for the app itself, but that doesn't help the
-  migration runner).
-  - Or give Cloud SQL a public IP with authorized networks that include the
-  runner IP range (rotated via GitHub's published list — fragile).
+* IAM Service Account Credentials API
+* Artifact Registry API
+* Cloud Run API
 
-  Cleanup — after the new pipeline is verified, delete the now-unused repo
-  secrets DOCKERHUB_USERNAME, DOCKERHUB_TOKEN, GCP_SA_KEY.
+### 2. Create an Artifact Registry Repository
 
-  Verification (in order)
+Your Docker images are being pushed to `asia-southeast1-docker.pkg.dev/.../meetworld/backend`.
 
-  1. Open a draft PR to dev → ci.yml should run lint/test/build green.
-  2. Merge to dev → deploy-dev runs build-and-push → migrate → deploy. Confirm a
-  new revision on meetworld-backend-dev and the URL returns 200 on /health.
-  3. PR dev → main and merge → deploy-staging runs end-to-end.
-  4. From main, git tag v0.0.0-rc1 && git push origin v0.0.0-rc1. build-and-push
-  runs immediately. migrate-prod blocks — approve as the data/DBA team.
-  deploy-prod blocks — approve as release managers. Confirm the new revision
-  serves traffic.
-  5. Test rollback: pin 100% traffic to the previous revision via gcloud run
-  services update-traffic meetworld-backend-prod --to-revisions=<prev>=100
-  --region=asia-southeast3.
+1. Go to **Artifact Registry** in GCP.
+2. Click **Create Repository**.
+3. Name it **`meetworld`**.
+4. Set the region to **`asia-southeast1` (Seoul)**.
+5. Format: **Docker**.
+
+### 3. Create a Deployment Service Account
+
+Create a service account that GitHub Actions will assume to build, push, and deploy.
+
+1. Go to **IAM & Admin** > **Service Accounts** > **Create Service Account**.
+2. Name it something like `github-deployer` (e.g., `github-deployer@YOUR_PROJECT_ID.iam.gserviceaccount.com`).
+3. Grant it the following roles so it can do its job:
+* **Artifact Registry Writer** (To push Docker images)
+* **Cloud Run Developer** (To deploy services to Cloud Run)
+* **Service Account User** (Required to deploy to Cloud Run acting as the runtime identity)
+
+
+
+### 4. Configure Workload Identity Federation (WIF)
+
+This establishes the trust link between GitHub and GCP. Run these commands using the Cloud Shell or your local Google Cloud CLI:
+
+```bash
+# 1. Create a Workload Identity Pool
+gcloud iam workload-identity-pools create "github-pool" \
+    --project="YOUR_PROJECT_ID" \
+    --location="global" \
+    --display-name="GitHub Pool"
+
+# 2. Create an Identity Provider inside that pool for GitHub
+gcloud iam workload-identity-pools providers create-oidc "github-provider" \
+    --project="YOUR_PROJECT_ID" \
+    --location="global" \
+    --workload-identity-pool="github-pool" \
+    --display-name="GitHub Provider" \
+    --attribute-mapping="google.subject=assertion.sub,attribute.actor=assertion.actor,attribute.repository=assertion.repository" \
+    --issuer-uri="https://token.actions.githubusercontent.com"
+
+# 3. Allow GitHub to assume your Service Account
+# Replace YOUR_ORGANIZATION/YOUR_REPO with your actual GitHub username/repo
+gcloud iam service-accounts add-iam-policy-binding "github-deployer@YOUR_PROJECT_ID.iam.gserviceaccount.com" \
+    --project="YOUR_PROJECT_ID" \
+    --role="roles/iam.workloadIdentityUser" \
+    --member="principalSet://iam.googleapis.com/projects/YOUR_PROJECT_NUMBER/locations/global/workloadIdentityPools/github-pool/attribute.repository/YOUR_ORGANIZATION/YOUR_REPO"
+
+```
+
+To get your `WORKLOAD_IDENTITY_PROVIDER` string for GitHub, run:
+
+```bash
+gcloud iam workload-identity-pools providers describe "github-provider" \
+    --project="YOUR_PROJECT_ID" \
+    --location="global" \
+    --workload-identity-pool="github-pool" \
+    --format="value(name)"
+
+```
+
+*It will look like: `projects/1234567890/locations/global/workloadIdentityPools/github-pool/providers/github-provider*`
+
+---
+
+## Part 2: What to Put in GitHub Secrets & Variables
+
+Go to your GitHub Repository > **Settings** > **Secrets and variables** > **Actions**.
+
+### 1. Repository Variables (Variables tab)
+
+Click **New repository variable**. These are non-sensitive values.
+
+| Name | Value | Description |
+| --- | --- | --- |
+| `GCP_PROJECT_ID` | `your-gcp-project-id` | The alphanumeric ID of your GCP project. |
+
+### 2. Repository Secrets (Secrets tab)
+
+Click **New repository secret**. These are highly sensitive credentials.
+
+| Name | Value | Description |
+| --- | --- | --- |
+| `GCP_WORKLOAD_IDENTITY_PROVIDER` | `projects/.../providers/github-provider` | The exact path string generated at the end of step 4 above. |
+| `GCP_SERVICE_ACCOUNT` | `github-deployer@...iam.gserviceaccount.com` | The full email address of the service account you created. |
+
+### 3. Environment Secrets (Secrets tab)
+
+Because your files utilize environment-specific configs (like `environment: dev`, `environment: staging`), you should store your database URLs in **Environment Secrets** instead of global Repository Secrets. This keeps your Dev, Staging, and Production databases completely isolated.
+
+1. Go to **Settings** > **Environments**.
+2. Click **New environment** and create three environments matching your script: `dev`, `staging`, and `production-migrate`.
+3. Inside *each* environment, add an **Environment Secret**:
+
+| Environment | Secret Name | Value Example |
+| --- | --- | --- |
+| **`dev`** | `DATABASE_URL` | `postgresql://user:pass@dev-db-host:5432/db` |
+| **`staging`** | `DATABASE_URL` | `postgresql://user:pass@staging-db-host:5432/db` |
+| **`production-migrate`** | `DATABASE_URL` | `postgresql://user:pass@prod-db-host:5432/db` |
+
+> ⚠️ **Note on Production Gates:** In your `deploy-prod.yml`, your jobs target `production-migrate` and `production-deploy`. If you want those "Gates" (manual review approvals) your comments mentioned to actually halt the pipeline until someone clicks "Approve", make sure to check the **Required reviewers** box when configuring those environments in GitHub!

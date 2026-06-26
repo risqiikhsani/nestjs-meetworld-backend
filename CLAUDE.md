@@ -170,7 +170,7 @@ docker compose up -d       # postgres on 5432, redis on 6379
 
 ### CI / CD
 
-Four workflows in `.github/workflows/`. All build with pnpm 9 + Node 22. All authenticate to GCP via **Workload Identity Federation** (the `google-github-actions/auth@v2` action reads `GCP_WORKLOAD_IDENTITY_PROVIDER` and `GCP_SERVICE_ACCOUNT` secrets). Images are pushed to **Google Artifact Registry** at `asia-southeast3-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/meetworld/backend`. Deploys target three Cloud Run services in the same GCP project, region `asia-southeast3`: `meetworld-backend-dev`, `meetworld-backend-staging`, `meetworld-backend-prod`.
+Four workflows in `.github/workflows/`. All build with pnpm 9 + Node 22. All authenticate to GCP via **Workload Identity Federation** (the `google-github-actions/auth@v2` action reads `GCP_WORKLOAD_IDENTITY_PROVIDER` and `GCP_SERVICE_ACCOUNT` secrets). Images are pushed to **Google Artifact Registry** at `asia-southeast1-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/meetworld/backend`. Deploys target three Cloud Run services in the same GCP project, region `asia-southeast1`: `meetworld-backend-dev`, `meetworld-backend-staging`, `meetworld-backend-prod`.
 
 | Workflow | Trigger | Concurrency | Environments used |
 |---|---|---|---|
@@ -188,7 +188,7 @@ build-and-push  →  migrate  →  deploy
 
 - **`build-and-push`** — builds the multi-stage `Dockerfile`, pushes two tags: `<env>` and `<env>-<short-sha>` (prod uses the actual tag name and `latest` instead). GHA cache. No environment gate.
 - **`migrate`** — runs `pnpm typeorm migration:run -d src/data-source.ts`. `data-source.ts` reads `DATABASE_URL` via `dotenv/config`, which the workflow passes inline. Schema changes go in **before** the new code ships.
-- **`deploy`** — `gcloud run deploy <service> --image=<image>:<tag> --region=asia-southeast3 --platform=managed --allow-unauthenticated`. Service-level env vars (`JWT_SECRET`, `REDIS_URL`, `AWS_*`, etc. from `.env.example`) are configured on each Cloud Run service and are **not** set by the workflow — don't add `--update-env-vars` to the deploy step or you will wipe them.
+- **`deploy`** — `gcloud run deploy <service> --image=<image>:<tag> --region=asia-southeast1 --platform=managed --allow-unauthenticated`. Service-level env vars (`JWT_SECRET`, `REDIS_URL`, `AWS_*`, etc. from `.env.example`) are configured on each Cloud Run service and are **not** set by the workflow — don't add `--update-env-vars` to the deploy step or you will wipe them.
 
 #### Production gates
 
@@ -215,7 +215,7 @@ Promote the previous Cloud Run revision to 100% traffic:
 ```bash
 gcloud run services update-traffic meetworld-backend-prod \
   --to-revisions=<previous-revision-name>=100 \
-  --region=asia-southeast3
+  --region=asia-southeast1
 ```
 
 This is immediate and does not require a new image build. To roll back AND cut a new release, re-tag and push the previous good commit (`git tag v1.0.1 <sha> && git push origin v1.0.1`) — the existing production workflow handles it.

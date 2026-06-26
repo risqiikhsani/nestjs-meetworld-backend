@@ -16,8 +16,8 @@ permissions:
   id-token: write
 
 env:
-  REGION: asia-southeast3
-  IMAGE: asia-southeast3-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/meetworld/backend
+  REGION: asia-southeast1
+  IMAGE: asia-southeast1-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/meetworld/backend
   SERVICE: meetworld-backend-staging
   TAG: staging
 
@@ -31,8 +31,10 @@ jobs:
       - id: auth
         uses: google-github-actions/auth@v2
         with:
-          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
-          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+          ## use this if you use Workload Identity Federation (WIF)
+          # workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          # service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
 
       - name: Configure Docker for Artifact Registry
         run: gcloud --quiet auth configure-docker ${{ env.REGION }}-docker.pkg.dev
@@ -97,8 +99,10 @@ jobs:
       - id: auth
         uses: google-github-actions/auth@v2
         with:
-          workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
-          service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+          ## use this if you use Workload Identity Federation (WIF)
+          # workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          # service_account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
 
       - name: Deploy revision
         run: |
