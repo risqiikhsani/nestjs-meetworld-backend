@@ -119,5 +119,9 @@ jobs:
 
       - name: Run migrations against ephemeral Postgres
         env:
-          DATABASE_URL: postgresql://localhost:5432/postgres
+          # Username is required: when omitted, `pg` defaults to the OS user
+          # (which is `runner` on GitHub Actions), and the container only has
+          # the default `postgres` superuser. Trust auth skips the password
+          # check but the role itself must still exist.
+          DATABASE_URL: postgresql://postgres@localhost:5432/postgres
         run: pnpm typeorm migration:run -d src/data-source.ts
