@@ -16,6 +16,10 @@ import {
 } from '@nestjs/swagger';
 import { memoryStorage } from 'multer';
 import { SWAGGER_BEARER_NAME } from '../config/swagger.config';
+import {
+  UploadManyResponseDto,
+  UploadResponseDto,
+} from './dto/upload-response.dto';
 import { UploadsService } from './uploads.service';
 
 const MAX_FILE_SIZE_BYTES = 25 * 1024 * 1024;
@@ -47,15 +51,10 @@ export class UploadsController {
       required: ['file'],
     },
   })
-  @ApiOkResponse({
-    description: 'Public S3 URL of the uploaded object.',
-    schema: {
-      type: 'string',
-      example:
-        'https://meetworld-uploads.s3.us-east-1.amazonaws.com/2026-06-18/abc.jpg',
-    },
-  })
-  uploadOne(@UploadedFile() file: Express.Multer.File): Promise<string> {
+  @ApiOkResponse({ type: UploadResponseDto })
+  uploadOne(
+    @UploadedFile() file: Express.Multer.File,
+  ): Promise<UploadResponseDto> {
     return this.uploadsService.uploadOne(file);
   }
 
@@ -77,18 +76,10 @@ export class UploadsController {
       required: ['files'],
     },
   })
-  @ApiOkResponse({
-    description: 'Public S3 URLs in upload order.',
-    schema: {
-      type: 'array',
-      items: {
-        type: 'string',
-        example:
-          'https://meetworld-uploads.s3.us-east-1.amazonaws.com/2026-06-18/abc.jpg',
-      },
-    },
-  })
-  uploadMany(@UploadedFiles() files: Express.Multer.File[]): Promise<string[]> {
+  @ApiOkResponse({ type: UploadManyResponseDto })
+  uploadMany(
+    @UploadedFiles() files: Express.Multer.File[],
+  ): Promise<UploadManyResponseDto> {
     return this.uploadsService.uploadMany(files);
   }
 }

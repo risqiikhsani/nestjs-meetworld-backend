@@ -170,13 +170,68 @@ docker compose up -d       # postgres on 5432, redis on 6379
 
 ### CI / CD
 
-`.github/workflows/release.yml` runs on push to `main`:
+Four workflows in `.github/workflows/`. All build with pnpm 9 + Node 22. All authenticate to GCP via **Workload Identity Federation** (the `google-github-actions/auth@v2` action reads `GCP_WORKLOAD_IDENTITY_PROVIDER` and `GCP_SERVICE_ACCOUNT` secrets). Images are pushed to **Google Artifact Registry** at `asia-southeast1-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/meetworld/backend`. Deploys target three Cloud Run services in the same GCP project, region `asia-southeast1`: `meetworld-backend-dev`, `meetworld-backend-staging`, `meetworld-backend-prod`.
 
-1. **`test`** — `pnpm install --frozen-lockfile`, `pnpm run lint`, `pnpm test`.
-2. **`migrate-prod`** — gated by a `production` environment with required reviewers, installs/builds and runs `pnpm run migration:run` against the production DB (secret `DATABASE_URL`).
-3. **`deploy-prod`** — gated by the same `production` environment, runs whatever the deploy step is (the workflow file currently has a TODO with examples: `fly deploy`, `railway up`, `rsync`, or `docker push` + container restart).
+| Workflow | Trigger | Concurrency | Environments used |
+|---|---|---|---|
+| `ci.yml` | PR + push to `dev`, `main` | cancel in-flight on same ref | none |
+| `deploy-dev.yml` | push to `dev` (also `workflow_dispatch`) | cancel in-flight on same ref | `dev` |
+| `deploy-staging.yml` | push to `main` (also `workflow_dispatch`) | cancel in-flight on same ref | `staging` |
+| `deploy-production.yml` | push tag matching `v*.*.*` | `prod-<tag>`, **never cancel** | `production-migrate`, `production-deploy` |
 
-`migrate-prod` must succeed before `deploy-prod` runs. The required-reviewer gate is what prevents a broken migration from going out.
+#### Job shape (shared across the three deploy workflows)
+
+```
+build-and-push  →  migrate  →  deploy
+   (no env)       (env)       (env)
+```
+
+- **`build-and-push`** — builds the multi-stage `Dockerfile`, pushes two tags: `<env>` and `<env>-<short-sha>` (prod uses the actual tag name and `latest` instead). GHA cache. No environment gate.
+- **`migrate`** — runs `pnpm typeorm migration:run -d src/data-source.ts`. `data-source.ts` reads `DATABASE_URL` via `dotenv/config`, which the workflow passes inline. Schema changes go in **before** the new code ships.
+- **`deploy`** — `gcloud run deploy <service> --image=<image>:<tag> --region=asia-southeast1 --platform=managed --allow-unauthenticated`. Service-level env vars (`JWT_SECRET`, `REDIS_URL`, `AWS_*`, etc. from `.env.example`) are configured on each Cloud Run service and are **not** set by the workflow — don't add `--update-env-vars` to the deploy step or you will wipe them.
+
+#### Production gates
+
+Two separate GitHub environments so the two approval blocks can have different required reviewer teams:
+
+1. **`production-migrate`** — gates `migrate-prod`. Suggested reviewers: data / DBA team. This is the gate that catches destructive migrations before they touch the prod DB.
+2. **`production-deploy`** — gates `deploy-prod` and depends on `migrate-prod` succeeding. Suggested reviewers: release managers / SRE. Approving this means the new revision rolls out to live traffic.
+
+`production-deploy` is intentionally a separate environment from `production-migrate` so the two gates can have independent reviewer lists and the second gate is meaningful (not just rubber-stamping the first).
+
+A release is triggered by pushing a `v*.*.*` tag from `main` after the change has been verified in staging:
+
+```bash
+git tag v1.0.0
+git push origin v1.0.0
+```
+
+The workflow picks up the tag verbatim via `github.ref_name` and uses it as the image tag. Re-tagging while a release is in flight queues a second run (concurrency `cancel-in-progress: false`) instead of killing the in-flight one — different tag releases run independently.
+
+#### Rollback
+
+Promote the previous Cloud Run revision to 100% traffic:
+
+```bash
+gcloud run services update-traffic meetworld-backend-prod \
+  --to-revisions=<previous-revision-name>=100 \
+  --region=asia-southeast1
+```
+
+This is immediate and does not require a new image build. To roll back AND cut a new release, re-tag and push the previous good commit (`git tag v1.0.1 <sha> && git push origin v1.0.1`) — the existing production workflow handles it.
+
+#### GitHub-side setup (one-time)
+
+- **Repository variable** `GCP_PROJECT_ID` (the GCP project that owns the registry and Cloud Run services).
+- **Repository secrets** shared across environments: `GCP_WORKLOAD_IDENTITY_PROVIDER` (the WIF provider resource name) and `GCP_SERVICE_ACCOUNT` (the SA email bound to it).
+- **Per-environment secret** `DATABASE_URL` — one connection string per environment, pointing at that environment's database.
+- **Environments** (Settings → Environments):
+  - `dev` — no required reviewers, deployment branch `dev`.
+  - `staging` — no required reviewers, deployment branch `main`.
+  - `production-migrate` — required reviewers, deployment tags `v*.*.*`.
+  - `production-deploy` — required reviewers, deployment tags `v*.*.*`.
+
+The legacy `DOCKERHUB_USERNAME`, `DOCKERHUB_TOKEN`, `GCP_SA_KEY` secrets are no longer used by any workflow — delete them from the repo once the new pipeline is verified.
 
 ### Things that aren't here yet
 

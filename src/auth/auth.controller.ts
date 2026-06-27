@@ -9,6 +9,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
+import { Throttle } from '@nestjs/throttler';
 import {
   ApiBadRequestResponse,
   ApiBearerAuth,
@@ -40,6 +41,7 @@ import { Public } from './decorators/public.decorator';
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
+  @Throttle({ default: { limit: 3, ttl: 3_600_000 } }) // 3 per hour per IP
   @Public()
   @Post('register')
   @HttpCode(HttpStatus.CREATED)
@@ -54,6 +56,7 @@ export class AuthController {
     return this.authService.register(dto);
   }
 
+  @Throttle({ default: { limit: 5, ttl: 60_000 } }) // 5 per minute per IP
   @Public()
   @UseGuards(AuthGuard('local'))
   @Post('login')
