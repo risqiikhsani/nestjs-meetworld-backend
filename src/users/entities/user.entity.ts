@@ -12,6 +12,7 @@ import {
 } from 'typeorm';
 import { Post } from '../../posts/entities/post.entity';
 import { Comment } from '../../comments/entities/comment.entity';
+import { Like } from '../../likes/entity/like.entity';
 import { Profile } from '../../profiles/entities/profile.entity';
 
 @Entity({ name: 'users' })
@@ -63,6 +64,10 @@ export class User {
   @ApiProperty({ type: () => Comment, isArray: true })
   @OneToMany(() => Comment, (comment) => comment.author, { cascade: false })
   comments!: Comment[];
+
+  @ApiProperty({ type: () => Like, isArray: true })
+  @OneToMany(() => Like, (like) => like.author, { cascade: false })
+  likes!: Like[];
 
   @ApiProperty()
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })

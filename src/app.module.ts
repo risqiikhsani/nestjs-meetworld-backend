@@ -15,6 +15,7 @@ import { ProfilesModule } from './profiles/profiles.module';
 import { REDIS_CLIENT } from './redis/redis.constants';
 import { UploadsModule } from './uploads/uploads.module';
 import { UsersModule } from './users/users.module';
+import { LikesModule } from './likes/likes.module';
 
 @Module({
   imports: [
@@ -45,6 +46,7 @@ import { UsersModule } from './users/users.module';
     ProfilesModule,
     UploadsModule,
     CommentsModule,
+    LikesModule,
   ],
   providers: [
     // Runs before JwtAuthGuard (registered in main.ts via useGlobalGuards) so that

@@ -77,3 +77,51 @@ jobs:
 
       - name: Build (type-check + bundle)
         run: pnpm run build
+
+  # Validates that every migration in src/database/migrations/ compiles and
+  # runs cleanly against a fresh Postgres. Catches bad SQL (and broken
+  # down()s) at PR time instead of at deploy time. The service container is
+  # scoped to this job, so concurrent CI jobs (lint, test, build) are not
+  # affected.
+  migrate:
+    name: Migration validation
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # data-source.ts points entities/migrations at dist/, so build first.
+      - name: Build (type-check + bundle)
+        run: pnpm run build
+
+      - name: Run migrations against ephemeral Postgres
+        env:
+          # Username is required: when omitted, `pg` defaults to the OS user
+          # (which is `runner` on GitHub Actions), and the container only has
+          # the default `postgres` superuser. Trust auth skips the password
+          # check but the role itself must still exist.
+          DATABASE_URL: postgresql://postgres@localhost:5432/postgres
+        run: pnpm typeorm migration:run -d src/data-source.ts
