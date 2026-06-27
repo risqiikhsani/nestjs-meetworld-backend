@@ -293,7 +293,10 @@ describe('PostsService', () => {
       expect(result.items).toBe(posts);
       expect(result.nextCursor).toBeNull();
       expect(repo.createQueryBuilder).toHaveBeenCalledWith('post');
-      expect(qb.leftJoinAndSelect).toHaveBeenCalledWith('post.author', 'author');
+      expect(qb.leftJoinAndSelect).toHaveBeenCalledWith(
+        'post.author',
+        'author',
+      );
       expect(qb.orderBy).toHaveBeenCalledWith('post.createdAt', 'DESC');
       expect(qb.addOrderBy).toHaveBeenCalledWith('post.id', 'DESC');
       expect(qb.limit).toHaveBeenCalledWith(21);

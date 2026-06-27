@@ -40,5 +40,6 @@ export function buildSwaggerConfig(): DocumentBuilder {
     )
     .addTag('profiles', 'Profile scoped under a user (`:userId/profile`).')
     .addTag('uploads', 'Multipart file uploads to S3.')
+    .addTag('likes', 'Likes on posts (`POST /posts/:postId/likes`).')
     .addTag('health', 'Liveness/readiness probe (public).');
 }

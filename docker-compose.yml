@@ -1,21 +1,21 @@
 services:
-  api:
-    build: .
-    ports:
-      - "3000:3000"
-    environment:
-      - PORT=3000
-      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/meetworld
-      - JWT_SECRET=replace-me-with-a-long-random-string
-      - JWT_EXPIRES_IN=1d
-      - REDIS_URL=redis://redis:6379
-      - AWS_REGION=us-east-1
-      - AWS_ACCESS_KEY_ID=changeme
-      - AWS_SECRET_ACCESS_KEY=changeme
-      - AWS_S3_BUCKET=meetworld-uploads
-    depends_on:
-      - postgres
-      - redis
+  # api:
+  #   build: .
+  #   ports:
+  #     - "3000:3000"
+  #   environment:
+  #     - PORT=3000
+  #     - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/meetworld
+  #     - JWT_SECRET=replace-me-with-a-long-random-string
+  #     - JWT_EXPIRES_IN=1d
+  #     - REDIS_URL=redis://redis:6379
+  #     - AWS_REGION=us-east-1
+  #     - AWS_ACCESS_KEY_ID=changeme
+  #     - AWS_SECRET_ACCESS_KEY=changeme
+  #     - AWS_S3_BUCKET=meetworld-uploads
+  #   depends_on:
+  #     - postgres
+  #     - redis
 
   postgres:
     image: postgres:16-alpine
