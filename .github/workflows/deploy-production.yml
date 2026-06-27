@@ -122,3 +122,45 @@ jobs:
             --region="$REGION" \
             --platform=managed \
             --allow-unauthenticated
+
+  # Confirms the freshly-deployed revision actually serves traffic. Runs in
+  # the same `production-deploy` environment as `deploy-prod` so it's part
+  # of the same approval gate — once the reviewer signs off the deploy, this
+  # verification runs automatically before the workflow is marked green.
+  smoke-test:
+    name: Smoke test (health endpoint)
+    needs: deploy-prod
+    runs-on: ubuntu-latest
+    environment: production-deploy
+    steps:
+      - uses: actions/checkout@v4
+
+      - id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - id: url
+        name: Resolve deployed service URL
+        run: |
+          URL=$(gcloud run services describe "$SERVICE" \
+            --region="$REGION" \
+            --format='value(status.url)')
+          if [ -z "$URL" ]; then
+            echo "::error::Failed to resolve service URL"
+            exit 1
+          fi
+          echo "service-url=$URL" >> "$GITHUB_OUTPUT"
+
+      - name: Health check
+        run: |
+          for i in 1 2 3 4 5 6; do
+            if curl -fsS --max-time 10 "${{ steps.url.outputs.service-url }}/api/health"; then
+              echo "Health check passed"
+              exit 0
+            fi
+            echo "Attempt $i failed, retrying in 5s..."
+            sleep 5
+          done
+          echo "::error::Health check failed after 6 attempts"
+          exit 1

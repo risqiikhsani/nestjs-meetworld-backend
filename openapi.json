@@ -890,12 +890,11 @@
         },
         "responses": {
           "200": {
-            "description": "Public S3 URL of the uploaded object.",
+            "description": "",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "string",
-                  "example": "https://meetworld-uploads.s3.us-east-1.amazonaws.com/2026-06-18/abc.jpg"
+                  "$ref": "#/components/schemas/UploadResponseDto"
                 }
               }
             }
@@ -940,15 +939,11 @@
         },
         "responses": {
           "200": {
-            "description": "Public S3 URLs in upload order.",
+            "description": "",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "array",
-                  "items": {
-                    "type": "string",
-                    "example": "https://meetworld-uploads.s3.us-east-1.amazonaws.com/2026-06-18/abc.jpg"
-                  }
+                  "$ref": "#/components/schemas/UploadManyResponseDto"
                 }
               }
             }
@@ -1279,6 +1274,246 @@
           "comments"
         ]
       }
+    },
+    "/api/posts/{postId}/likes": {
+      "get": {
+        "operationId": "LikesController_findAll",
+        "parameters": [
+          {
+            "name": "postId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/Like"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Parent post was not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "List likes on a post",
+        "tags": [
+          "likes"
+        ]
+      },
+      "post": {
+        "operationId": "LikesController_create",
+        "parameters": [
+          {
+            "name": "postId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Like"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Parent post was not found.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "The current user already liked this post.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Like a post as the authenticated user",
+        "tags": [
+          "likes"
+        ]
+      }
+    },
+    "/api/likes/{id}": {
+      "get": {
+        "operationId": "LikesController_findOne",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Like"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Get a like by id",
+        "tags": [
+          "likes"
+        ]
+      },
+      "delete": {
+        "operationId": "LikesController_remove",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "format": "uuid",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": ""
+          },
+          "400": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The current user is not the author of this like.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Remove a like (author only)",
+        "tags": [
+          "likes"
+        ]
+      }
     }
   },
   "info": {
@@ -1310,7 +1545,11 @@
     },
     {
       "name": "uploads",
-      "description": "Multipart file uploads to S3."
+      "description": "Multipart file uploads to pluggable object storage (S3 or GCS)."
+    },
+    {
+      "name": "likes",
+      "description": "Likes on posts (`POST /posts/:postId/likes`)."
     },
     {
       "name": "health",
@@ -1516,6 +1755,55 @@
           "updatedAt"
         ]
       },
+      "Like": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "authorId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "postId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "commentId": {
+            "type": "object",
+            "format": "uuid",
+            "nullable": true
+          },
+          "author": {
+            "$ref": "#/components/schemas/User"
+          },
+          "post": {
+            "$ref": "#/components/schemas/Post"
+          },
+          "comment": {
+            "$ref": "#/components/schemas/Comment"
+          },
+          "createdAt": {
+            "format": "date-time",
+            "type": "string"
+          },
+          "updatedAt": {
+            "format": "date-time",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "authorId",
+          "postId",
+          "commentId",
+          "author",
+          "post",
+          "createdAt",
+          "updatedAt"
+        ]
+      },
       "Post": {
         "type": "object",
         "properties": {
@@ -1563,6 +1851,12 @@
             "items": {
               "$ref": "#/components/schemas/Comment"
             }
+          },
+          "likes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Like"
+            }
           }
         },
         "required": [
@@ -1574,7 +1868,8 @@
           "author",
           "createdAt",
           "updatedAt",
-          "comments"
+          "comments",
+          "likes"
         ]
       },
       "User": {
@@ -1622,6 +1917,12 @@
               "$ref": "#/components/schemas/Comment"
             }
           },
+          "likes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Like"
+            }
+          },
           "createdAt": {
             "format": "date-time",
             "type": "string"
@@ -1639,6 +1940,7 @@
           "avatarUrl",
           "posts",
           "comments",
+          "likes",
           "createdAt",
           "updatedAt"
         ]
@@ -1859,6 +2161,38 @@
             "format": "date"
           }
         }
+      },
+      "UploadResponseDto": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "description": "Public URL of the uploaded object (provider-dependent: S3 or GCS).",
+            "example": "https://meetworld-uploads.s3.us-east-1.amazonaws.com/2026-06-18/abc.jpg"
+          }
+        },
+        "required": [
+          "url"
+        ]
+      },
+      "UploadManyResponseDto": {
+        "type": "object",
+        "properties": {
+          "urls": {
+            "description": "Public URLs in upload order (provider-dependent: S3 or GCS).",
+            "example": [
+              "https://meetworld-uploads.s3.us-east-1.amazonaws.com/2026-06-18/abc.jpg",
+              "https://meetworld-uploads.s3.us-east-1.amazonaws.com/2026-06-18/def.jpg"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "urls"
+        ]
       },
       "CreateCommentDto": {
         "type": "object",
