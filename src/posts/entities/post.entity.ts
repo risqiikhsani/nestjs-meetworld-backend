@@ -13,6 +13,7 @@ import {
 } from 'typeorm';
 import { User } from '../../users/entities/user.entity';
 import { Comment } from '../../comments/entities/comment.entity';
+import { Like } from '../../likes/entity/like.entity';
 
 @Entity({ name: 'posts' })
 @Index('idx_posts_author_id', ['authorId'])
@@ -65,4 +66,8 @@ export class Post {
   @ApiProperty({ type: () => Comment, isArray: true })
   @OneToMany(() => Comment, (comment) => comment.post)
   comments!: Comment[];
+
+  @ApiProperty({ type: () => Like, isArray: true })
+  @OneToMany(() => Like, (like) => like.post)
+  likes!: Like[];
 }

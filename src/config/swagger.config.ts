@@ -43,5 +43,6 @@ export function buildSwaggerConfig(): DocumentBuilder {
       'uploads',
       'Multipart file uploads to pluggable object storage (S3 or GCS).',
     )
+    .addTag('likes', 'Likes on posts (`POST /posts/:postId/likes`).')
     .addTag('health', 'Liveness/readiness probe (public).');
 }
